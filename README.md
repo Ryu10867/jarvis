@@ -9,7 +9,7 @@ See [packaging/INSTALL.md](packaging/INSTALL.md) for details.
 
 **With Python 3.11+ already installed:**
 ```powershell
-pip install "jarvis-assistant @ https://github.com/<you>/<repo>/releases/latest/download/jarvis_assistant-1.0.0-py3-none-any.whl"
+pip install "jarvis-assistant @ https://github.com/Ryu10867/jarvis/releases/latest/download/jarvis_assistant-1.0.0-py3-none-any.whl"
 python -m jarvis setup      # your name, the AI model, speech models, optional face enrolment
 python -m jarvis            # start (say "Hey Jarvis", click the orb, or press Ctrl+Alt+J)
 ```
