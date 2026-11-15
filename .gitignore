@@ -1,0 +1,12 @@
+# personal data: face enrolment, intruder photos, logs, memory, notes, Coursera progress
+data/
+# downloaded models (fetched by `jarvis setup` / setup_models.py)
+models/
+# environments and build output
+.venv/
+venv/
+build/
+dist/
+*.egg-info/
+__pycache__/
+*.pyc

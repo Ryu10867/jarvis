@@ -1,0 +1,227 @@
+<title>Orb Style Gallery</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  /* A gallery of round-orb looks for Jarvis, each rendered live. Committed dark "HUD" world → single theme. */
+  :root{
+    --bg:#06080e; --panel:#0d131e; --panel2:#111a28; --line:#1e2c42; --fg:#e6edf8; --muted:#8294af;
+    --accent:#f4c24e;
+    color-scheme:dark;
+    --disp:"Space Grotesk",ui-sans-serif,system-ui,sans-serif;
+    --body:"Inter",ui-sans-serif,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{margin:0;background:radial-gradient(130% 90% at 50% -10%,#0b1320,var(--bg) 60%);color:var(--fg);font-family:var(--body);-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1120px;margin:0 auto;min-height:100%;
+    padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+    padding-block:clamp(18px,3.5vw,32px);display:flex;flex-direction:column;gap:18px;}
+  header{display:flex;flex-direction:column;gap:6px;}
+  .eyebrow{font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);font-weight:600;}
+  h1{font-family:var(--disp);font-weight:600;font-size:clamp(25px,4.5vw,38px);margin:0;letter-spacing:-.01em;}
+  .sub{color:var(--muted);max-width:60ch;font-size:15px;line-height:1.5;}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px;}
+  .card{position:relative;background:linear-gradient(180deg,#0c121d,#090e16);border:1px solid var(--line);
+    border-radius:16px;overflow:hidden;cursor:pointer;transition:.18s;display:flex;flex-direction:column;}
+  .card:hover{border-color:#32496c;transform:translateY(-2px);}
+  .card.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 10px 30px rgba(0,0,0,.4);}
+  .card canvas{width:100%;aspect-ratio:1/1;display:block;}
+  .meta{padding:12px 14px 14px;display:flex;flex-direction:column;gap:3px;border-top:1px solid var(--line);}
+  .meta .n{font-family:var(--disp);font-weight:500;font-size:15px;display:flex;align-items:center;gap:8px;}
+  .meta .d{font-size:12.5px;color:var(--muted);line-height:1.4;}
+  .badge{margin-left:auto;font-family:var(--body);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);border-radius:999px;padding:2px 8px;opacity:0;transition:.15s;}
+  .card.sel .badge{opacity:1;}
+
+  .bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);
+    border-radius:14px;padding:12px 16px;}
+  .bar .lab{font-size:13px;color:var(--muted);}
+  .swatch{width:26px;height:26px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:.15s;}
+  .swatch.on{border-color:var(--fg);transform:scale(1.12);}
+  .foot{font-size:13px;color:var(--muted);line-height:1.55;}
+  .foot b{color:var(--fg);font-weight:600;}
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">J.A.R.V.I.S · Orb Styles</span>
+    <h1>Orb Style Gallery</h1>
+    <p class="sub">Eight different looks for the round orb — same spot on your screen, same shape, different skin. They're all animating live. Tap one to select it, and recolour them all with the swatches below.</p>
+  </header>
+
+  <div class="bar">
+    <span class="lab">Accent</span>
+    <span id="swatches" style="display:flex;gap:9px;flex-wrap:wrap;"></span>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <p class="foot"><b>These are mock-ups in the browser.</b> Pick the look you like (and a colour) and I'll rebuild the real orb in <b>orb.py</b> to match. The current orb is closest to <b>Arc Reactor</b> / <b>Node Sphere</b>.</p>
+</div>
+
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600&display=swap">
+
+<script>
+const STYLES = [
+  {id:"arc",    n:"Arc Reactor",   d:"Concentric tech rings, segmented arcs and a bright core. The movie look."},
+  {id:"node",   n:"Node Sphere",   d:"A lattice of glowing points mapped on a slowly spinning globe."},
+  {id:"plasma", n:"Plasma Core",   d:"A soft liquid-energy ball that churns and breathes from within."},
+  {id:"wire",   n:"Wireframe Globe",d:"Latitude and longitude lines of a rotating holographic planet."},
+  {id:"rings",  n:"Orbital Rings", d:"A small core wrapped in bold tilted rings with racing satellites."},
+  {id:"nebula", n:"Nebula",        d:"A swirling galaxy of dust and sparks, slow and atmospheric."},
+  {id:"glass",  n:"Glass Marble",  d:"A glossy translucent sphere with a bright highlight and inner glow."},
+  {id:"pulse",  n:"Pulse Rings",   d:"Minimal concentric rings that ripple outward — calm and clean."},
+];
+const COLORS = [
+  {c:"#f4c24e",name:"Gold"},{c:"#46d6f0",name:"Cyan"},{c:"#4fe0a0",name:"Emerald"},
+  {c:"#ab7cf5",name:"Violet"},{c:"#ff6b9d",name:"Rose"},{c:"#ff5b52",name:"Red"},{c:"#eef2f8",name:"White"},
+];
+let accent = COLORS[0].c, selected = "arc";
+
+function norm(h){h=h.replace("#","");if(h.length===3)h=h.split("").map(c=>c+c).join("");return "#"+h;}
+function hex(h,a){return norm(h)+Math.round(Math.max(0,Math.min(1,a))*255).toString(16).padStart(2,"0");}
+function mix(a,b,t){a=norm(a);b=norm(b);const pa=[1,3,5].map(i=>parseInt(a.slice(i,i+2),16)),pb=[1,3,5].map(i=>parseInt(b.slice(i,i+2),16));
+  return "#"+pa.map((v,i)=>Math.round(v+(pb[i]-v)*t).toString(16).padStart(2,"0")).join("");}
+
+// swatches
+const sw = document.getElementById("swatches");
+COLORS.forEach((o,i)=>{const s=document.createElement("span");s.className="swatch"+(i===0?" on":"");s.style.background=o.c;s.title=o.name;
+  s.onclick=()=>{accent=o.c;[...sw.children].forEach(x=>x.classList.remove("on"));s.classList.add("on");};sw.appendChild(s);});
+
+// cards
+const grid=document.getElementById("grid");
+const orbs=[];
+STYLES.forEach(st=>{
+  const card=document.createElement("div");card.className="card"+(st.id===selected?" sel":"");card.dataset.id=st.id;
+  const cv=document.createElement("canvas");
+  card.appendChild(cv);
+  const m=document.createElement("div");m.className="meta";
+  m.innerHTML=`<span class="n">${st.n}<span class="badge">Selected</span></span><span class="d">${st.d}</span>`;
+  card.appendChild(m);
+  card.onclick=()=>{selected=st.id;[...grid.children].forEach(c=>c.classList.toggle("sel",c.dataset.id===selected));};
+  grid.appendChild(card);
+  orbs.push({id:st.id,cv,ctx:cv.getContext("2d"),W:0,H:0,seed:Math.random()*1000});
+});
+
+// sizing
+function size(){const DPR=Math.min(window.devicePixelRatio||1,2);
+  for(const o of orbs){const r=o.cv.getBoundingClientRect();if(!r.width)continue;
+    o.DPR=DPR;o.W=o.cv.width=Math.round(r.width*DPR);o.H=o.cv.height=Math.round(r.height*DPR);}}
+new ResizeObserver(size).observe(grid);size();
+
+// precompute node sphere points
+const NODES=[];for(let i=0;i<90;i++){const y=1-(i/89)*2,r=Math.sqrt(1-y*y),th=i*2.399963;NODES.push([Math.cos(th)*r,y,Math.sin(th)*r]);}
+
+function lat(C,ctx,cx,cy,R,t,DPR,ang){
+  // wireframe globe
+  const tilt=0.5;
+  for(let la=-4;la<=4;la++){const ph=la/5*Math.PI/2,ry=Math.sin(ph),rad=Math.cos(ph);
+    ctx.strokeStyle=hex(C,0.3+0.3*Math.cos(ph));ctx.lineWidth=1*DPR;ctx.beginPath();
+    for(let k=0;k<=40;k++){const a=k/40*Math.PI*2;let x=Math.cos(a)*rad,z=Math.sin(a)*rad,y=ry;
+      const z2=z*Math.cos(tilt)-y*Math.sin(tilt),y2=z*Math.sin(tilt)+y*Math.cos(tilt);
+      const px=cx+x*R,py=cy+y2*R;k?ctx.lineTo(px,py):ctx.moveTo(px,py);}ctx.stroke();}
+  for(let lo=0;lo<8;lo++){const off=lo/8*Math.PI*2+ang;
+    ctx.strokeStyle=hex(C,0.28);ctx.lineWidth=1*DPR;ctx.beginPath();
+    for(let k=0;k<=40;k++){const ph=-Math.PI/2+k/40*Math.PI;let x=Math.cos(ph)*Math.cos(off),z=Math.cos(ph)*Math.sin(off),y=Math.sin(ph);
+      const z2=z*Math.cos(tilt)-y*Math.sin(tilt),y2=z*Math.sin(tilt)+y*Math.cos(tilt);
+      const px=cx+x*R,py=cy+y2*R;k?ctx.lineTo(px,py):ctx.moveTo(px,py);}ctx.stroke();}
+}
+
+function render(o,t){
+  const {ctx,W,H,DPR}=o;if(!W)return;const cx=W/2,cy=H/2,R=Math.min(W,H)*0.3,C=accent;
+  const tt=t+o.seed;
+  ctx.clearRect(0,0,W,H);
+  // base glow (all)
+  const g=ctx.createRadialGradient(cx,cy,0,cx,cy,R*2.3);
+  g.addColorStop(0,hex(C,0.16));g.addColorStop(0.45,hex(C,0.05));g.addColorStop(1,hex(C,0));
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  const ang=tt*0.5;
+
+  if(o.id==="arc"){
+    for(let i=0;i<3;i++){const r1=R*(1.05+i*0.28),seg=[6,8,5][i];ctx.lineWidth=(5-i)*DPR;ctx.lineCap="round";
+      for(let s=0;s<seg;s++){const a0=ang*(i%2?-1:1)*(0.6+i*0.3)+s/seg*Math.PI*2,a1=a0+Math.PI*2/seg*0.78;
+        ctx.strokeStyle=hex(C,0.55-i*0.1);ctx.beginPath();ctx.arc(cx,cy,r1,a0,a1);ctx.stroke();}}
+    // ticks
+    for(let i=0;i<60;i++){const a=i/60*Math.PI*2+ang*0.5,big=i%5===0,r1=R*1.5,r2=R*(big?1.38:1.44);
+      ctx.strokeStyle=hex(C,big?0.7:0.35);ctx.lineWidth=(big?2:1)*DPR;ctx.beginPath();
+      ctx.moveTo(cx+Math.cos(a)*r1,cy+Math.sin(a)*r1);ctx.lineTo(cx+Math.cos(a)*r2,cy+Math.sin(a)*r2);ctx.stroke();}
+    const vanes=8;for(let i=0;i<vanes;i++){const a=i/vanes*Math.PI*2+ang*0.4;
+      ctx.fillStyle=hex(mix(C,"#fff",0.1),0.3+0.2*Math.sin(tt*2+i));
+      ctx.beginPath();ctx.moveTo(cx+Math.cos(a-0.14)*R*0.45,cy+Math.sin(a-0.14)*R*0.45);
+      ctx.lineTo(cx+Math.cos(a)*R*0.9,cy+Math.sin(a)*R*0.9);ctx.lineTo(cx+Math.cos(a+0.14)*R*0.45,cy+Math.sin(a+0.14)*R*0.45);ctx.closePath();ctx.fill();}
+    const core=ctx.createRadialGradient(cx,cy,0,cx,cy,R*0.5);core.addColorStop(0,hex("#fff",0.85));core.addColorStop(0.5,hex(C,0.4));core.addColorStop(1,hex(C,0));
+    ctx.fillStyle=core;ctx.beginPath();ctx.arc(cx,cy,R*0.5,0,Math.PI*2);ctx.fill();
+  }
+  else if(o.id==="node"){
+    const ca=Math.cos(ang),sa=Math.sin(ang),tilt=0.45;
+    for(const n of NODES){let x=n[0]*ca-n[2]*sa,z=n[0]*sa+n[2]*ca,y=n[1];
+      const y2=y*Math.cos(tilt)-z*Math.sin(tilt),z2=y*Math.sin(tilt)+z*Math.cos(tilt),depth=(z2+1)/2;
+      const px=cx+x*R,py=cy+y2*R,tw=0.4+0.6*((Math.sin(tt*2+n[0]*9+n[1]*7)+1)/2);
+      ctx.fillStyle=hex(C,(0.12+depth*0.7)*tw);ctx.beginPath();ctx.arc(px,py,(0.7+depth*1.9)*DPR,0,Math.PI*2);ctx.fill();}
+    const core=ctx.createRadialGradient(cx,cy,0,cx,cy,R*0.6);core.addColorStop(0,hex("#fff",0.4));core.addColorStop(0.5,hex(C,0.18));core.addColorStop(1,hex(C,0));
+    ctx.fillStyle=core;ctx.beginPath();ctx.arc(cx,cy,R*0.6,0,Math.PI*2);ctx.fill();
+  }
+  else if(o.id==="plasma"){
+    ctx.save();ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.clip();
+    ctx.fillStyle=hex(mix(C,"#000",0.5),0.5);ctx.fillRect(cx-R,cy-R,R*2,R*2);
+    for(let i=0;i<7;i++){const a=tt*(0.3+i*0.1)+i*1.3,rr=R*(0.3+0.25*Math.sin(tt*0.7+i));
+      const bx=cx+Math.cos(a)*R*0.4,by=cy+Math.sin(a*1.1)*R*0.4;
+      const bg=ctx.createRadialGradient(bx,by,0,bx,by,rr);
+      bg.addColorStop(0,hex(mix(C,"#fff",0.3),0.5));bg.addColorStop(0.5,hex(C,0.22));bg.addColorStop(1,hex(C,0));
+      ctx.fillStyle=bg;ctx.beginPath();ctx.arc(bx,by,rr,0,Math.PI*2);ctx.fill();}
+    const core=ctx.createRadialGradient(cx,cy,0,cx,cy,R*0.45);core.addColorStop(0,hex("#fff",0.8));core.addColorStop(1,hex(C,0));
+    ctx.fillStyle=core;ctx.beginPath();ctx.arc(cx,cy,R*0.45,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+    ctx.strokeStyle=hex(C,0.5);ctx.lineWidth=1.5*DPR;ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.stroke();
+  }
+  else if(o.id==="wire"){
+    lat(C,ctx,cx,cy,R,tt,DPR,ang);
+    ctx.strokeStyle=hex(C,0.55);ctx.lineWidth=1.5*DPR;ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.stroke();
+  }
+  else if(o.id==="rings"){
+    const core=ctx.createRadialGradient(cx,cy,0,cx,cy,R*0.55);core.addColorStop(0,hex("#fff",0.9));core.addColorStop(0.5,hex(C,0.5));core.addColorStop(1,hex(C,0));
+    ctx.fillStyle=core;ctx.beginPath();ctx.arc(cx,cy,R*0.42,0,Math.PI*2);ctx.fill();
+    for(let i=0;i<3;i++){const rr=R*(0.9+i*0.28),rot=ang*(1+i*0.3)+i*1.1,ry=Math.abs(Math.cos(tt*0.4+i*0.8))*0.5+0.12;
+      ctx.save();ctx.translate(cx,cy);ctx.rotate(i*0.8+Math.sin(tt*0.3+i)*0.2);
+      ctx.strokeStyle=hex(C,0.6-i*0.12);ctx.lineWidth=(2-i*0.4)*DPR;ctx.beginPath();ctx.ellipse(0,0,rr,rr*ry,0,0,Math.PI*2);ctx.stroke();
+      const sa=rot*2,sx=Math.cos(sa)*rr,sy=Math.sin(sa)*rr*ry;ctx.fillStyle=hex("#fff",0.9);ctx.beginPath();ctx.arc(sx,sy,2.4*DPR,0,Math.PI*2);ctx.fill();
+      ctx.restore();}
+  }
+  else if(o.id==="nebula"){
+    ctx.save();ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.clip();
+    for(let i=0;i<120;i++){const a=i*0.19+tt*0.4,rad=R*(i/120);
+      const x=cx+Math.cos(a)*rad,y=cy+Math.sin(a)*rad*0.9;
+      const cc=mix(C,"#ffffff",Math.random()*0.3);
+      ctx.fillStyle=hex(cc,0.5*(1-i/160));ctx.beginPath();ctx.arc(x,y,(1.6*(1-i/150))*DPR,0,Math.PI*2);ctx.fill();}
+    for(let i=0;i<20;i++){const x=cx+(Math.random()-0.5)*R*1.8,y=cy+(Math.random()-0.5)*R*1.8;
+      ctx.fillStyle=hex("#fff",Math.random()*0.7);ctx.fillRect(x,y,1.2*DPR,1.2*DPR);}
+    const core=ctx.createRadialGradient(cx,cy,0,cx,cy,R*0.5);core.addColorStop(0,hex("#fff",0.7));core.addColorStop(0.4,hex(mix(C,"#fff",0.3),0.4));core.addColorStop(1,hex(C,0));
+    ctx.fillStyle=core;ctx.beginPath();ctx.arc(cx,cy,R*0.5,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+  }
+  else if(o.id==="glass"){
+    const body=ctx.createRadialGradient(cx-R*0.3,cy-R*0.35,R*0.1,cx,cy,R);
+    body.addColorStop(0,hex(mix(C,"#fff",0.5),0.55));body.addColorStop(0.5,hex(C,0.28));
+    body.addColorStop(0.85,hex(mix(C,"#000",0.4),0.5));body.addColorStop(1,hex(mix(C,"#000",0.6),0.65));
+    ctx.fillStyle=body;ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.fill();
+    // inner swirl glow
+    const ig=ctx.createRadialGradient(cx+Math.cos(tt)*R*0.2,cy+Math.sin(tt)*R*0.2,0,cx,cy,R*0.8);
+    ig.addColorStop(0,hex("#fff",0.3));ig.addColorStop(1,hex(C,0));ctx.fillStyle=ig;ctx.beginPath();ctx.arc(cx,cy,R*0.8,0,Math.PI*2);ctx.fill();
+    // rim
+    ctx.strokeStyle=hex(mix(C,"#fff",0.4),0.5);ctx.lineWidth=1.5*DPR;ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.stroke();
+    // highlight
+    ctx.fillStyle=hex("#fff",0.6);ctx.beginPath();ctx.ellipse(cx-R*0.32,cy-R*0.38,R*0.18,R*0.1,-0.6,0,Math.PI*2);ctx.fill();
+  }
+  else if(o.id==="pulse"){
+    for(let i=0;i<4;i++){const ph=(tt*0.4+i/4)%1;const rr=R*(0.3+ph*0.95);
+      ctx.strokeStyle=hex(C,(1-ph)*0.6);ctx.lineWidth=2*DPR;ctx.beginPath();ctx.arc(cx,cy,rr,0,Math.PI*2);ctx.stroke();}
+    const core=ctx.createRadialGradient(cx,cy,0,cx,cy,R*0.35);core.addColorStop(0,hex("#fff",0.9));core.addColorStop(0.5,hex(C,0.5));core.addColorStop(1,hex(C,0));
+    ctx.fillStyle=core;ctx.beginPath();ctx.arc(cx,cy,R*0.3*(1+0.08*Math.sin(tt*3)),0,Math.PI*2);ctx.fill();
+  }
+}
+
+let last=performance.now();
+function loop(now){const t=now/1000;for(const o of orbs)render(o,t);requestAnimationFrame(loop);}
+requestAnimationFrame(loop);
+</script>

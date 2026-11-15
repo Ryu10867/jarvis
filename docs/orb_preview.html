@@ -1,0 +1,320 @@
+<title>Orb Design Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  /* Layout: a dark "HUD" stage holding the live orb, with state controls above and option toggles beside it. */
+  :root {
+    --bg: #07090e;
+    --panel: #0e131c;
+    --panel-2: #141b27;
+    --line: #223049;
+    --fg: #e8eef7;
+    --muted: #8697b0;
+    --gold: #f2c14e;
+    --cyan: #49d7f2;
+    --violet: #a97bf2;
+    --red: #f2564e;
+    color-scheme: dark;
+    --disp: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+    --body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: radial-gradient(130% 100% at 50% -10%, #0c1320 0%, var(--bg) 60%);
+    color: var(--fg); font-family: var(--body); -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 1060px; margin: 0 auto; min-height: 100%;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: clamp(18px, 4vw, 34px); display: flex; flex-direction: column; gap: 20px;
+  }
+  header { display: flex; flex-direction: column; gap: 6px; }
+  .eyebrow { font-size: 12px; letter-spacing: .22em; text-transform: uppercase; color: var(--gold); font-weight: 600; }
+  h1 { font-family: var(--disp); font-weight: 600; font-size: clamp(26px, 5vw, 40px); margin: 0; text-wrap: balance; letter-spacing: -.01em; }
+  .sub { color: var(--muted); max-width: 62ch; font-size: 15px; line-height: 1.5; }
+
+  .stage {
+    display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; align-items: stretch;
+  }
+  @media (max-width: 760px) { .stage { grid-template-columns: 1fr; } }
+
+  .orb-card {
+    position: relative; background: linear-gradient(180deg, #0c121c, #090d15);
+    border: 1px solid var(--line); border-radius: 18px; overflow: hidden;
+    min-height: 420px; display: flex; flex-direction: column;
+  }
+  .states { display: flex; flex-wrap: wrap; gap: 7px; padding: 14px 14px 0; }
+  .state-btn {
+    font-family: var(--body); font-size: 13px; font-weight: 500; color: var(--muted);
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px;
+    padding: 7px 14px; cursor: pointer; transition: .18s; display: inline-flex; align-items: center; gap: 7px;
+  }
+  .state-btn .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; opacity: .8; }
+  .state-btn:hover { color: var(--fg); border-color: #314764; }
+  .state-btn.on { color: #0a0e14; font-weight: 600; }
+  .state-btn.on[data-state="idle"] { background: var(--gold); border-color: var(--gold); }
+  .state-btn.on[data-state="listening"] { background: var(--cyan); border-color: var(--cyan); }
+  .state-btn.on[data-state="thinking"] { background: var(--violet); border-color: var(--violet); }
+  .state-btn.on[data-state="speaking"] { background: var(--gold); border-color: var(--gold); }
+  .state-btn.on[data-state="alert"] { background: var(--red); border-color: var(--red); }
+
+  canvas { width: 100%; flex: 1; display: block; touch-action: manipulation; }
+  .hint { position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; font-size: 12px; color: var(--muted); pointer-events: none; }
+
+  .options { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 6px; display: flex; flex-direction: column; }
+  .opt {
+    display: flex; gap: 12px; align-items: flex-start; padding: 12px 13px; border-radius: 12px; cursor: pointer;
+    border: 1px solid transparent; transition: .15s;
+  }
+  .opt:hover { background: var(--panel-2); }
+  .opt.on { background: var(--panel-2); border-color: #2b3c57; }
+  .sw { flex: none; width: 36px; height: 21px; border-radius: 999px; background: #28303e; position: relative; transition: .2s; margin-top: 2px; }
+  .sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 17px; height: 17px; border-radius: 50%; background: #6c7a91; transition: .2s; }
+  .opt.on .sw { background: color-mix(in srgb, var(--gold) 70%, #28303e); }
+  .opt.on .sw::after { left: 17px; background: #0a0e14; }
+  .opt-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .opt-name { font-family: var(--disp); font-weight: 500; font-size: 14.5px; }
+  .opt-desc { font-size: 12.5px; color: var(--muted); line-height: 1.4; }
+  .foot { font-size: 12.5px; color: var(--muted); line-height: 1.55; }
+  .foot b { color: var(--fg); font-weight: 600; }
+  kbd { font-family: var(--body); background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; font-size: 12px; color: var(--fg); }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">J.A.R.V.I.S · Design Lab</span>
+    <h1>Orb Design Lab</h1>
+    <p class="sub">The live orb below. Switch Jarvis's state to see how it reacts, then toggle each proposed design idea on top. Click the orb to wake it and open the radial menu.</p>
+  </header>
+
+  <div class="stage">
+    <div class="orb-card">
+      <div class="states" id="states"></div>
+      <canvas id="orb"></canvas>
+      <div class="hint" id="hint">Click the orb to wake it</div>
+    </div>
+
+    <div class="options" id="options"></div>
+  </div>
+
+  <p class="foot"><b>How to read this.</b> Everything here is a mock-up running in the browser, not the real Jarvis — but each toggle maps to something the real orb already tracks, so these are small code changes, not rewrites. Tell me which ones you want and I'll build them into <kbd>orb.py</kbd>.</p>
+</div>
+
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600&display=swap">
+
+<script>
+const STATES = [
+  { id: "idle",      label: "Idle",      color: "#f2c14e" },
+  { id: "listening", label: "Listening", color: "#49d7f2" },
+  { id: "thinking",  label: "Thinking",  color: "#a97bf2" },
+  { id: "speaking",  label: "Speaking",  color: "#f2c14e" },
+  { id: "alert",     label: "Alert",     color: "#f2564e" },
+];
+const OPTIONS = [
+  { id: "aura",     name: "Mode-colored aura",     desc: "A thin halo tints to the current state — cyan listening, violet thinking, red on alert — so status reads at a glance." },
+  { id: "reactive", name: "Audio-reactive surface", desc: "The sphere ripples with the voice level while speaking and listening, instead of only brightening." },
+  { id: "alertFx",  name: "Alert takeover",        desc: "On a security alert the orb swells, rings flare red and spin up, then settle. A real 'something's wrong' beat." },
+  { id: "idleDrift",name: "Idle drift",            desc: "After a while idle, the spin slows and the orb dims to a low ember so it stops demanding attention." },
+  { id: "menu",     name: "Radial click-menu",     desc: "Click the orb and quick actions fan out in a ring — fits the orb's shape better than a text menu." },
+  { id: "wave",     name: "Waveform tail",         desc: "A faint live mic waveform orbits the sphere while listening, so you can see it hearing you." },
+];
+
+const opt = Object.fromEntries(OPTIONS.map(o => [o.id, o.id === "aura" || o.id === "menu"]));
+let state = "idle";
+
+// ---- build controls
+const statesEl = document.getElementById("states");
+STATES.forEach(s => {
+  const b = document.createElement("button");
+  b.className = "state-btn" + (s.id === state ? " on" : "");
+  b.dataset.state = s.id;
+  b.style.color = s.color;
+  b.innerHTML = `<span class="dot"></span>${s.label}`;
+  b.onclick = () => {
+    state = s.id; wake(s.id === "listening" || s.id === "alert");
+    [...statesEl.children].forEach(c => c.classList.toggle("on", c.dataset.state === state));
+    if (state === "alert") alertBurst();
+    idleT = performance.now();
+  };
+  statesEl.appendChild(b);
+});
+const optionsEl = document.getElementById("options");
+OPTIONS.forEach(o => {
+  const d = document.createElement("div");
+  d.className = "opt" + (opt[o.id] ? " on" : "");
+  d.innerHTML = `<span class="sw"></span><span class="opt-txt"><span class="opt-name">${o.name}</span><span class="opt-desc">${o.desc}</span></span>`;
+  d.onclick = () => { opt[o.id] = !opt[o.id]; d.classList.toggle("on", opt[o.id]); if (o.id === "menu" && !opt.menu) menuOpen = 0; };
+  optionsEl.appendChild(d);
+});
+
+// ---- canvas orb
+const cv = document.getElementById("orb"), ctx = cv.getContext("2d");
+let W = 0, H = 0, DPR = 1, cx = 0, cy = 0, R = 0;
+function resize() {
+  const r = cv.getBoundingClientRect();
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = cv.width = Math.round(r.width * DPR); H = cv.height = Math.round(r.height * DPR);
+  cx = W / 2; cy = H / 2; R = Math.min(W, H) * 0.19;
+}
+new ResizeObserver(resize).observe(cv); resize();
+
+const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function hex(c, a) { return c + Math.round(a * 255).toString(16).padStart(2, "0"); }
+function stateColor() { return STATES.find(s => s.id === state).color; }
+
+// lattice nodes on the sphere
+const NODES = [];
+for (let i = 0; i < 70; i++) {
+  const y = 1 - (i / 69) * 2, r = Math.sqrt(1 - y * y), th = i * 2.399963;
+  NODES.push([Math.cos(th) * r, y, Math.sin(th) * r]);
+}
+
+let pulses = [], menuOpen = 0, spin = 0, energy = 0, idleT = performance.now(), swell = 0, alertHot = 0;
+const MENU = ["⏻", "🔇", "⤢", "◎", "⌕", "✕"];
+
+function wake(strong) {
+  if (pulses.length < 4) pulses.push(0);
+  if (strong) energy = 1;
+}
+function alertBurst() { alertHot = 1; pulses.push(0); swell = 1; }
+
+cv.addEventListener("click", e => {
+  const r = cv.getBoundingClientRect();
+  const dx = (e.clientX - r.left) * DPR - cx, dy = (e.clientY - r.top) * DPR - cy;
+  if (Math.hypot(dx, dy) < R * 2.4) {
+    wake(true); idleT = performance.now();
+    if (opt.menu) menuOpen = menuOpen > 0.5 ? 0 : 1;
+    document.getElementById("hint").style.opacity = "0";
+  }
+});
+
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  const idleSecs = (now - idleT) / 1000;
+  const drifting = opt.idleDrift && state === "idle" && idleSecs > 3;
+
+  // dynamics
+  const targetSpin = { idle: 0.25, listening: 0.5, thinking: 1.25, speaking: 0.7, alert: 1.5 }[state];
+  spin += ((drifting ? 0.06 : targetSpin) - spin) * Math.min(1, dt * 3);
+  const voice = (state === "speaking" || state === "listening")
+    ? (0.5 + 0.5 * Math.sin(now / 90)) * (0.6 + 0.4 * Math.sin(now / 37)) : 0;
+  const targetEnergy = drifting ? 0.18 : (state === "thinking" ? 0.8 : state === "alert" ? 1 : 0.45 + voice * 0.5);
+  energy += (targetEnergy - energy) * Math.min(1, dt * 4);
+  swell += ((state === "alert" ? 0.12 : 0) - swell) * Math.min(1, dt * 2) + (swell > 0 ? -swell * dt * 1.4 : 0);
+  swell = Math.max(0, swell);
+  alertHot += (-alertHot) * Math.min(1, dt * 0.8);
+  menuOpen += ((opt.menu && menuOpen > 0 ? 1 : 0) - menuOpen) * Math.min(1, dt * 8);
+  const t = now / 1000;
+  spinAng += dt * spin;
+
+  ctx.clearRect(0, 0, W, H);
+  const col = stateColor();
+  const er = R * (1 + swell + (opt.reactive ? voice * 0.06 : 0));
+
+  // ---- aura
+  if (opt.aura || state === "alert") {
+    const a = (state === "idle" && !drifting ? 0.25 : 0.5) * (0.7 + 0.3 * Math.sin(now / 400));
+    const g = ctx.createRadialGradient(cx, cy, er * 0.6, cx, cy, er * 3.4);
+    g.addColorStop(0, hex(col, a * 0.5)); g.addColorStop(0.5, hex(col, a * 0.18)); g.addColorStop(1, hex(col, 0));
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  }
+  // base glow
+  const gg = ctx.createRadialGradient(cx, cy, 0, cx, cy, er * 2.2);
+  gg.addColorStop(0, hex(col, 0.22 + energy * 0.2)); gg.addColorStop(0.4, hex(col, 0.08)); gg.addColorStop(1, hex(col, 0));
+  ctx.fillStyle = gg; ctx.fillRect(0, 0, W, H);
+
+  // ---- waveform tail
+  if (opt.wave && (state === "listening" || state === "speaking")) {
+    ctx.save(); ctx.strokeStyle = hex(col, 0.5); ctx.lineWidth = 1.5 * DPR; ctx.beginPath();
+    const rr = er * 1.7;
+    for (let i = 0; i <= 120; i++) {
+      const a = (i / 120) * Math.PI * 2;
+      const amp = Math.sin(a * 6 + now / 120) * Math.sin(a * 3 - now / 200);
+      const rad = rr + amp * er * 0.22 * (0.4 + energy);
+      const x = cx + Math.cos(a) * rad, y = cy + Math.sin(a) * rad;
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    }
+    ctx.closePath(); ctx.stroke(); ctx.restore();
+  }
+
+  // ---- shock pulses
+  pulses = pulses.filter(p => p < 0.9);
+  for (let i = 0; i < pulses.length; i++) {
+    pulses[i] += dt * 1.4; const p = pulses[i];
+    ctx.strokeStyle = hex(col, (1 - p) * 0.5); ctx.lineWidth = 2 * DPR;
+    ctx.beginPath(); ctx.arc(cx, cy, er + p * er * 2.6, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  // ---- sphere body
+  const bg = ctx.createRadialGradient(cx - er * 0.35, cy - er * 0.4, er * 0.1, cx, cy, er);
+  bg.addColorStop(0, hex(col, 0.95)); bg.addColorStop(0.55, hex(col, 0.32));
+  bg.addColorStop(0.85, hex(mix(col, "#05070c", 0.5), 0.6)); bg.addColorStop(1, hex("#05070c", 0.85));
+  ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(cx, cy, er, 0, Math.PI * 2); ctx.fill();
+
+  // ---- lattice nodes (projected 3D)
+  const ca = Math.cos(spinAng), sa = Math.sin(spinAng), tilt = 0.42;
+  for (const n of NODES) {
+    let x = n[0] * ca - n[2] * sa, z = n[0] * sa + n[2] * ca, y = n[1];
+    const y2 = y * Math.cos(tilt) - z * Math.sin(tilt), z2 = y * Math.sin(tilt) + z * Math.cos(tilt);
+    const depth = (z2 + 1) / 2;
+    const px = cx + x * er * 0.96, py = cy + y2 * er * 0.96;
+    const tw = 0.4 + 0.6 * ((Math.sin(now / 300 + n[0] * 9 + n[1] * 7) + 1) / 2);
+    ctx.fillStyle = hex(col, (0.15 + depth * 0.7) * (0.5 + energy * 0.5) * tw);
+    ctx.beginPath(); ctx.arc(px, py, (0.7 + depth * 1.8) * DPR, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // ---- core
+  const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, er * 0.5);
+  core.addColorStop(0, hex("#ffffff", 0.5 + energy * 0.4 + alertHot * 0.4)); core.addColorStop(0.5, hex(col, 0.3)); core.addColorStop(1, hex(col, 0));
+  ctx.fillStyle = core; ctx.beginPath(); ctx.arc(cx, cy, er * 0.5, 0, Math.PI * 2); ctx.fill();
+
+  // ---- orbital rings
+  const nrings = 3;
+  for (let i = 0; i < nrings; i++) {
+    const rr = er * (1.35 + i * 0.3), rot = spinAng * (1 + i * 0.25) + i * 1.1;
+    const tl = 1.15 + i * 0.2 + 0.1 * Math.sin(t * 0.5 + i);
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot * 0.3 + i);
+    ctx.strokeStyle = hex(col, (0.5 - i * 0.1) * (0.5 + energy * 0.5)); ctx.lineWidth = (1.4 - i * 0.2) * DPR;
+    ctx.beginPath(); ctx.ellipse(0, 0, rr, rr * Math.abs(Math.cos(tl)), 0, 0, Math.PI * 2); ctx.stroke();
+    // satellite
+    const sa2 = rot * 2.0, sx = Math.cos(sa2) * rr, sy = Math.sin(sa2) * rr * Math.abs(Math.cos(tl));
+    ctx.fillStyle = hex("#ffffff", 0.9); ctx.beginPath(); ctx.arc(sx, sy, 2.1 * DPR, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  // ---- scan ring while thinking
+  if (state === "thinking") {
+    const sy = Math.sin(now / 350) * er * 0.9;
+    const w = Math.sqrt(Math.max(0, er * er - sy * sy));
+    ctx.strokeStyle = hex(col, 0.8); ctx.lineWidth = 1.6 * DPR;
+    ctx.beginPath(); ctx.ellipse(cx, cy + sy, w, w * 0.18, 0, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  // ---- radial menu
+  if (menuOpen > 0.01) {
+    const n = MENU.length, rad = er * (2.1 + 0.3 * menuOpen);
+    for (let i = 0; i < n; i++) {
+      const a = -Math.PI / 2 + (i / n) * Math.PI * 2;
+      const x = cx + Math.cos(a) * rad, y = cy + Math.sin(a) * rad;
+      ctx.globalAlpha = menuOpen;
+      ctx.fillStyle = hex("#0e131c", 0.95); ctx.strokeStyle = hex(col, 0.6); ctx.lineWidth = 1.3 * DPR;
+      ctx.beginPath(); ctx.arc(x, y, 15 * DPR, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#e8eef7"; ctx.font = `${15 * DPR}px Inter, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(MENU[i], x, y + DPR); ctx.globalAlpha = 1;
+    }
+  }
+
+  requestAnimationFrame(frame);
+}
+let spinAng = 0;
+function mix(a, b, t) {
+  const pa = [parseInt(a.slice(1,3),16),parseInt(a.slice(3,5),16),parseInt(a.slice(5,7),16)];
+  const pb = [parseInt(b.slice(1,3),16),parseInt(b.slice(3,5),16),parseInt(b.slice(5,7),16)];
+  return "#" + pa.map((v,i)=>Math.round(v+(pb[i]-v)*t).toString(16).padStart(2,"0")).join("");
+}
+requestAnimationFrame(frame);
+setTimeout(() => wake(false), 400);
+</script>

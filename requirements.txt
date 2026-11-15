@@ -1,0 +1,10 @@
+opencv-python>=4.9
+numpy
+vosk
+sounddevice
+psutil
+watchdog
+comtypes
+onnxruntime
+onnx-asr[hub]
+piper-tts

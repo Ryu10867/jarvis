@@ -1,0 +1,168 @@
+# ---------------------------------------------------------------
+#  JARVIS configuration
+# ---------------------------------------------------------------
+
+[assistant]
+name = "Jarvis"
+owner_name = "sir"
+city = ""                     # for weather; blank = detect from your internet connection
+# Words that wake Jarvis. The first is the real one; the rest are what the small recogniser actually hears when
+# "Jarvis" is said with a non-American accent (all of these were seen in data/jarvis.log).
+# `run_jarvis.bat --train-wake` learns more of them from your own voice automatically.
+# Other sound-alikes (davis, service ...) are not accepted blindly: Whisper re-listens and decides.
+wake_words = ["jarvis", "jervis", "jarvis's", "travis", "harris", "doris", "norris", "darius", "burris", "iris",
+              "javis", "garvis", "dallas"]
+
+[llm]
+host = "http://127.0.0.1:11434"
+model = "qwen2.5:7b"          # fits in the RTX 4050's 6 GB VRAM; use "qwen2.5:3b" for faster/lighter
+temperature = 0.3
+max_tool_rounds = 6
+num_ctx = 4096                # 4096 keeps 82% of the model on the GPU (19 tok/s); 8192 spills to CPU (7 tok/s)
+history_turns = 4             # how many past exchanges Jarvis keeps in mind
+keep_alive = "2h"             # keep the model in memory between commands
+auto_start = true             # start Ollama automatically if it isn't running
+reflexes = true               # instant pattern-matched handling of common commands (no LLM wait)
+max_tokens = 260              # longest reply the model may write (replies are 1-3 spoken sentences)
+learn_shortcuts = true        # a sentence that led to the same simple action twice is done instantly from then on
+# Optional settings passed to Ollama when Jarvis starts it himself (they don't apply if Ollama is already running).
+# Not enabled by default because it has not been measured on this machine. To try a compact memory cache, which
+# leaves a little more of the 6 GB of video memory for the model itself, use:
+#   server_env = { OLLAMA_FLASH_ATTENTION = "1", OLLAMA_KV_CACHE_TYPE = "q8_0" }
+server_env = {}
+
+[voice]
+enabled = true
+vosk_model = "models/vosk-model-small-en-us-0.15"   # always-on listening (light)
+stt_engine = "whisper"        # "whisper" = accurate command transcription, "vosk" = lighter
+whisper_model = "whisper-base"   # onnx-asr export: ~0.4 s per phrase (the old onnx-community one took 4-10 s)
+whisper_language = "en"       # "" = auto-detect (lets you speak Hindi etc., slightly slower)
+input_device = ""             # blank = system default mic; or part of a device name, e.g. "Microphone Array"
+output_device = ""            # blank = system default speakers
+mic_gain = 1.0                # raise to 2-4 if `run_jarvis.bat --mic-test` says the microphone is quiet
+command_timeout = 8           # seconds to wait for a command after the wake word
+follow_up_seconds = 7         # after a reply, keep listening this long for a follow-up (no wake word). 0 = off
+conversation_seconds = 45     # the same, in conversation mode ("Jarvis, stay with me" ... "that's all")
+push_to_talk = "ctrl+alt+j"   # global hotkey: talk without the wake word (also interrupts Jarvis mid-sentence)
+# --- wake word. "Hey Jarvis" is heard by a small neural network that knows the sound of the phrase itself, so it no
+#     longer depends on the speech-to-text spelling "Jarvis" correctly. Plain "Jarvis" still works through the older
+#     layers below, with the network's partial score as supporting evidence.
+neural_wake = true
+neural_wake_threshold = 0.5   # score (0-1) at which "Hey Jarvis" wakes him. Lower = more sensitive, more false wakes
+neural_wake_soft = 0.3        # a short phrase scoring at least this also counts (bare "Jarvis" often lands 0.2-0.5)
+wake_ack = "chime"            # how he answers the bare wake word: "chime" (instant tone), "voice" ("Sir?"), "none"
+chime_volume = 0.16           # 0-1
+barge_in = true               # "Hey Jarvis" said while he is talking stops him (needs a very confident detection)
+barge_in_threshold = 0.9
+endpoint_silence = 0.7        # seconds of quiet that end your sentence. Lower = snappier but may cut you off; 0 = off
+fast_reflex = true            # act on the fast recogniser's text when it is already a clear known command (saves ~0.4 s)
+wake_grammar_confidence = 0.85
+wake_fuzzy = 0.5              # how loosely a sound-alike word is passed to Whisper for a second opinion
+tts_engine = "piper"          # "piper" = neural British voice (offline), "sapi" = Windows built-in voice
+piper_voice = "models/piper/en_GB-alan-medium.onnx"    # or en_GB-northern_english_male-medium.onnx
+piper_length_scale = 0.95     # < 1 speaks faster
+tts_rate = 1                  # -10..10, SAPI only
+
+[ui]
+hud = true                    # false = no orb or window at all (console only)
+style = "orb"                 # "orb" = floating 3D sphere on the desktop; "panel" = the old arc-reactor window
+orb_size = 300                # starting size in pixels (the right-click menu and "get bigger/smaller" change it)
+orb_theme = "gold"            # gold, arc (blue), emerald, violet, crimson  (also: "Jarvis, turn blue")
+orb_glass = 1.0               # 0 = just the glowing lattice, 1 = a dark glass ball behind it (clearer on bright wallpapers)
+orb_fps = 30
+captions = true               # show what was heard / what is being said under the orb
+hide_in_fullscreen = true     # the orb steps aside while a game or full-screen video is running (he still listens)
+always_on_top = false         # panel style only
+opacity = 0.97                # panel style only
+
+# Things Jarvis says or shows without being asked.
+[proactive]
+network = true                # "Sir, we've lost the internet connection." / "We're back online, sir."
+power = true                  # a caption under the orb when the charger is connected / removed / battery is full
+quiet_hours = [23, 7]         # between these hours he never speaks unprompted (the remark is shown instead)
+
+# Coursera in Chrome: needs the "Jarvis Coursera Link" extension (load the extension/ folder in chrome://extensions).
+[coursera]
+enabled = true
+port = 8765                   # if you change this, change it in extension/background.js and manifest.json too
+
+[actions]
+# Risky actions always ask "yes or no" first.
+confirm_risky = true
+notes_file = "data/notes.txt"
+
+# ---------------------------------------------------------------
+#  Protocols: say "Jarvis, work protocol" / "initiate party protocol".
+#  Each step is [tool, {arguments}]. Risky tools still ask for confirmation.
+# ---------------------------------------------------------------
+[protocols.work]
+say = "Work protocol engaged. Your workspace is ready, sir."
+steps = [["open_app", {name = "visual studio code"}], ["open_app", {name = "chrome"}], ["volume", {action = "set", level = 30}]]
+
+[protocols.focus]
+say = "Focus protocol engaged. I'll keep the distractions to a minimum, sir."
+steps = [["window_control", {action = "show_desktop"}], ["volume", {action = "set", level = 15}]]
+
+[protocols.party]
+say = "Party protocol engaged. Do try to keep it civilised, sir."
+steps = [["volume", {action = "set", level = 80}], ["play_on_youtube", {query = "party hits playlist"}]]
+
+[protocols.clean_slate]
+say = "Clean slate protocol complete. The desk is clear, sir."
+steps = [["window_control", {action = "show_desktop"}]]
+
+[protocols.lockdown]
+say = "Lockdown protocol engaged. The system is secured."
+steps = [["security_sweep", {}], ["lock_screen", {}]]
+
+[protocols.goodnight]
+say = "Goodnight, sir. I'll keep watch."
+steps = [["media_control", {action = "play_pause"}], ["volume", {action = "set", level = 0}], ["lock_screen", {}]]
+
+[security]
+alerts_log = "data/alerts.jsonl"
+speak_alerts = true
+toast_alerts = true
+
+[security.face_guard]
+enabled = true
+camera_index = 0
+camera_rotation = "auto"      # "auto" detects an upside-down webcam image; or "0" / "180"
+check_interval = 4            # seconds between checks
+match_threshold = 0.363       # SFace cosine threshold (higher = stricter)
+strikes_to_lock = 3           # consecutive unknown-face checks before locking
+lock_on_intruder = true
+intruder_dir = "known:Pictures/Jarvis Intruders"   # photos of strangers at the laptop (`jarvis intruders` opens it)
+welcome_back_after = 600      # seconds away before Jarvis says "Welcome back, sir"
+
+[security.process_watch]
+enabled = true
+interval = 3
+suspicious_dirs = ["\\AppData\\Local\\Temp\\", "\\Downloads\\", "\\Users\\Public\\", "\\Windows\\Temp\\"]
+# Full paths of programs allowed to launch encoded/hidden PowerShell (alerts become quiet log entries).
+# Critical rules (ransomware, disabling Defender) are never silenced.
+trusted_parents = [
+    "%APPDATA%\\npm\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe",
+    "%LOCALAPPDATA%\\Programs\\Microsoft VS Code\\Code.exe",
+]
+
+[security.network_watch]
+enabled = true
+interval = 10
+suspicious_ports = [4444, 1337, 31337, 6667, 6666, 5555, 9001, 12345, 54321, 3389]
+
+[security.usb_watch]
+enabled = true
+interval = 3
+
+[security.login_watch]
+enabled = true                # failed-login alerts need Jarvis to run as Administrator
+interval = 10
+photo_on_failed_login = true
+
+[security.file_watch]
+enabled = true
+paths = ["known:Documents", "known:Desktop", "known:Pictures"]   # follows OneDrive redirection
+burst_threshold = 40          # this many changes ...
+burst_window = 10             # ... within this many seconds = possible ransomware
+ransom_extensions = [".locked", ".encrypted", ".crypt", ".crypto", ".enc", ".ryk", ".lockbit", ".wncry"]
