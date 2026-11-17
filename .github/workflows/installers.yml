@@ -26,7 +26,10 @@ jobs:
           cp config.toml stage/jarvis/default_config.toml
           cp packaging/pyproject.toml stage/
           cp packaging/INSTALL.md stage/README.md
-          python -m pip wheel stage --no-deps -w dist
+          # ./stage, not "stage": a bare name is looked up on PyPI (there is an unrelated package called stage)
+          python -m pip wheel ./stage --no-deps -w dist
+          ls -l dist
+          test -f dist/jarvis_assistant-*.whl || { echo "no jarvis wheel was built"; exit 1; }
       - uses: actions/upload-artifact@v4
         with:
           name: wheel
@@ -48,7 +51,9 @@ jobs:
       - name: Run the Mac installer
         env:
           JARVIS_SETUP_ARGS: "--yes --no-brain"
-        run: bash packaging/install.sh
+        run: |
+          ls packaging/jarvis_assistant-*.whl     # the wheel built above, so the installer tests THIS commit, not a release
+          bash packaging/install.sh
       - name: jarvis command works
         run: |
           "$HOME/.local/bin/jarvis" --help | head -5
@@ -71,7 +76,9 @@ jobs:
         shell: pwsh
         env:
           JARVIS_SETUP_ARGS: "--yes --no-brain"
-        run: powershell -ExecutionPolicy Bypass -File packaging\install.ps1
+        run: |
+          if (-not (Get-ChildItem packaging\jarvis_assistant-*.whl)) { throw "the wheel built above is missing" }
+          powershell -ExecutionPolicy Bypass -File packaging\install.ps1
       - name: Smoke test
         shell: pwsh
         run: |
