@@ -6,6 +6,7 @@ name: installers
 on:
   push:
     branches: [main, master]
+    paths-ignore: ["docs/index.html", "packaging/site/**", "**.md"]     # website-only changes don't need a fresh install test
   workflow_dispatch:
 
 jobs:
