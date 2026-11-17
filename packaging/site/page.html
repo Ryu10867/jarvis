@@ -448,6 +448,20 @@ thead th { background: rgba(255, 255, 255, .04); }
 .cap:hover { border-color: rgba(255, 255, 255, .22); }
 .chips li { background: rgba(255, 255, 255, .04); border-color: rgba(255, 255, 255, .1); }
 
+/* ---------- the install buttons: identical for both systems, lit in Jarvis's colour, so they turn red, blue and yellow with him */
+.btn.jbtn, .top nav a.cta {
+  background-color: var(--jc);
+  background-image: linear-gradient(140deg, rgba(255, 255, 255, .32), rgba(255, 255, 255, .06) 55%, rgba(0, 0, 0, .08));
+  border: 1px solid color-mix(in srgb, var(--jc) 70%, #fff);
+  color: #07080b;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .25) inset, 0 10px 34px -10px var(--jc), 0 0 22px -6px var(--jc);
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+  text-shadow: none;
+  transition: translate .35s var(--ease), background-color .35s linear, border-color .35s linear, box-shadow .35s linear, filter .2s;
+}
+.btn.jbtn:hover, .top nav a.cta:hover { background-color: var(--jc); border-color: #fff; filter: brightness(1.12); box-shadow: 0 0 0 1px rgba(0, 0, 0, .2) inset, 0 14px 44px -10px var(--jc), 0 0 34px -4px var(--jc); }
+.btn.jbtn:focus-visible, .top nav a.cta:focus-visible { outline-color: #fff; }
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
@@ -493,11 +507,11 @@ thead th { background: rgba(255, 255, 255, .04); }
       <h1><span class="ln"><span>Say <em>&ldquo;Hey Jarvis.&rdquo;</em></span></span><span class="ln"><span>Your laptop answers.</span></span></h1>
       <p class="lede" data-in>A voice assistant in the spirit of the films that runs entirely on your own computer. He opens your apps, runs your browser, tracks your deadlines, reads your screen and keeps watch over the laptop. No account, no subscription, no cloud listening in.</p>
       <div class="actions" data-in>
-        <a class="btn primary os-btn" id="hero-win" href="#install" data-os="win">
+        <a class="btn jbtn os-btn" id="hero-win" href="#install" data-os="win">
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 4.5h8v7H3zM13 4.5h8v7h-8zM3 13.5h8v7H3zM13 13.5h8v7h-8z" opacity=".92"/></svg>
           <span>Install on Windows</span>
         </a>
-        <a class="btn os-btn" id="hero-mac" href="#install" data-os="mac">
+        <a class="btn jbtn os-btn" id="hero-mac" href="#install" data-os="mac">
           <span class="key" aria-hidden="true">&#8984;</span>
           <span>Install on macOS</span>
         </a>
@@ -927,8 +941,8 @@ thead th { background: rgba(255, 255, 255, .04); }
     <h2>All systems ready, <em>sir.</em></h2>
     <p class="lede">Free, open source, and one line to install on Windows or a Mac.</p>
     <div class="actions">
-      <a class="btn primary os-btn" id="go-win" href="#install" data-os="win"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 4.5h8v7H3zM13 4.5h8v7h-8zM3 13.5h8v7H3zM13 13.5h8v7h-8z" opacity=".92"/></svg><span>Install on Windows</span></a>
-      <a class="btn os-btn" id="go-mac" href="#install" data-os="mac"><span class="key" aria-hidden="true">&#8984;</span><span>Install on macOS</span></a>
+      <a class="btn jbtn os-btn" id="go-win" href="#install" data-os="win"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 4.5h8v7H3zM13 4.5h8v7h-8zM3 13.5h8v7H3zM13 13.5h8v7h-8z" opacity=".92"/></svg><span>Install on Windows</span></a>
+      <a class="btn jbtn os-btn" id="go-mac" href="#install" data-os="mac"><span class="key" aria-hidden="true">&#8984;</span><span>Install on macOS</span></a>
     </div>
     <p class="fine"><a class="textlink" href="https://github.com/Ryu10867/jarvis">Read the source on GitHub</a></p>
   </div>
@@ -2002,8 +2016,7 @@ thead th { background: rgba(255, 255, 255, .04); }
   $("os-win").addEventListener("click", function () { os("win", true); });
   $("os-mac").addEventListener("click", function () { os("mac", true); });
   os(mac ? "mac" : "win", false);
-  all(".os-btn").forEach(function (b) {               /* both systems get a button; the visitor's own is the gold one */
-    b.classList.toggle("primary", (b.dataset.os === "mac") === mac);
+  all(".os-btn").forEach(function (b) {               /* one button per system, both alike, both in Jarvis's colour */
     b.addEventListener("click", function () { os(b.dataset.os, true); });
   });
   all("[data-copy]").forEach(function (b) {
@@ -2120,7 +2133,7 @@ thead th { background: rgba(255, 255, 255, .04); }
         el.style.setProperty("--mx", (e.clientX - r.left) + "px"); el.style.setProperty("--my", (e.clientY - r.top) + "px");
       });
     });
-    if (!reduce) all(".btn.primary, .top nav a.cta").forEach(function (b) {
+    if (!reduce) all(".btn.primary, .btn.jbtn, .top nav a.cta").forEach(function (b) {
       b.addEventListener("pointermove", function (e) {
         var r = b.getBoundingClientRect();
         b.style.setProperty("--tx", ((e.clientX - r.left - r.width / 2) * .2).toFixed(1) + "px");
