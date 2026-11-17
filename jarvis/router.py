@@ -278,6 +278,106 @@ def _agenda(t: str, run, free: bool) -> str | None:
     return None
 
 
+# --- files (filetools.py): convert, compress / zip, images into one PDF or PowerPoint, researched presentations
+_FMT = r"(png|jpe?g|webp|bmp|bitmap|gif|tiff?|ico|icon|pdf)"
+_DECK = r"(?:ppt|pptx|power ?point(?: presentation)?|presentation|slide ?show|slide deck|deck|slides)"
+_SAVE_IN = re.compile(r",?\s+(?:and\s+)?(?:(?:save|put|store|keep|place|drop)\s+(?:it|them|that|those|the (?:file|files|pdf|result))?"
+                      r"\s*)?(?:in|on|to|into|onto)\s+(?:the |my )?(desktop|downloads?|documents|pictures|music|videos|onedrive|"
+                      r"this folder|the same folder|same folder|[\w .-]+? folder)$")
+_CALL_IT = re.compile(r",?\s+(?:and\s+)?(?:call|name)\s+it\s+(.+)$")
+_FILEREF = re.compile(r"\b(this|that|these|those|them|it|selected|selection|highlighted|images?|photos?|pictures?|pics|"
+                      r"screenshots?|files?|folders?)\b|\.(?:jpe?g|png|webp|bmp|gif|tiff?|heic|docx?|pptx?|xlsx?|pdf)\b")
+_NUMBER = {"three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11,
+           "twelve": 12, "fifteen": 15, "twenty": 20}
+
+
+def _files(t: str, run, free: bool) -> str | None:
+    if not free or not re.search(r"\b(convert|change|turn|make|save|export|compress|zip|shrink|squash|reduce|create|"
+                                 r"build|prepare|put|combine|merge|join|research|generate|draft|design|do|stick|take|"
+                                 r"gather|collect|grab|compile)\b", t):
+        return None
+    s, save_to, name = t, "", ""
+    # "..., they're too big to email" / "... because I need to send them": the reason isn't part of what to do
+    s = re.sub(r"(?:,\s+(?:so|since|they're|they are|it's|it is|i need|i want)|\s+(?:because|cause|coz|cuz|so that))\s.*$",
+               "", s).strip()
+    m = _CALL_IT.search(s)
+    if m:
+        name, s = m.group(1).strip(" \"'"), s[:m.start()].strip()
+    m = _SAVE_IN.search(s)
+    if m:
+        save_to, s = m.group(1), s[:m.start()].strip()
+
+    def files(action, obj, **extra):
+        args = {"action": action, "files": (obj or "selected").strip(), "save_to": save_to, "name": name}
+        args.update(extra)
+        return run("file_tools", args)
+
+    # "take the pictures I picked and stick them in one document" / "gather the screenshots and make slides out of them"
+    m = re.fullmatch(r"(?:take|grab|get|gather(?: up)?|collect|use)\s+(.+?)\s+and\s+(?:then\s+)?(?:stick|put|combine|merge|turn|"
+                     r"make|join|compile)\s+(?:them|those|it)?\s*(?:all\s+)?(?:in|into|to|as)?\s*(?:a\s+|one\s+|a single\s+|an?\s+)?"
+                     r"(?:single\s+)?(pdf|document|file|" + _DECK[3:-1] + r")(?:\s+(?:out of|from|of|with)\s+(?:them|those|it))?", s)
+    if m and _FILEREF.search(m.group(1)):
+        return files("pdf" if m.group(2) in ("pdf", "document", "file") else "pptx", m.group(1))
+
+    # a presentation: about a topic (researched) or of some images
+    m = (re.fullmatch(rf"(?:make|create|prepare|build|do|generate|design|draft|put together|write)\s+(?:me\s+|us\s+)?"
+                      rf"(?:a\s+|an\s+|one\s+)?(?:(\d+|\w+)[- ]slides?\s+)?{_DECK}\s+(?:on|about|regarding|covering|for|of|"
+                      rf"from|with|using|out of)\s+(.+?)(?:\s+with\s+(\d+|\w+)\s+slides)?", s)
+         or re.fullmatch(rf"(?:do (?:some )?|)research(?: on| about)?\s+(.+?)\s+and\s+(?:then\s+)?(?:make|create|prepare|build|"
+                         rf"do)\s+(?:me\s+)?(?:a\s+|an\s+)?{_DECK}(?: (?:on|about) (?:it|that|them))?(?:\s+with\s+(\d+|\w+)\s+slides)?", s))
+    if m:
+        if m.re.pattern.startswith("(?:do (?:some )?|)research"):
+            topic, n = m.group(1), m.group(2)
+        else:
+            topic, n = m.group(2), m.group(3) or m.group(1)
+        if _FILEREF.search(topic) and not re.search(r"\b(about|on)\b", s.split(topic)[0][-8:]):
+            return files("pptx", topic)                                     # "a ppt of these 4 images"
+        count = int(n) if n and n.isdigit() else _NUMBER.get(n or "", 8)
+        return run("make_presentation", {"topic": topic, "slides": count, "save_to": save_to})
+    m = re.fullmatch(rf"(?:put|turn|make|convert|combine|merge)\s+(.+?)\s+(?:in|into|to)\s+(?:a\s+|one\s+|a single\s+)?{_DECK}", s)
+    if m and _FILEREF.search(m.group(1)):
+        return files("pptx", m.group(1))
+
+    # one PDF of several images
+    m = (re.fullmatch(r"(?:make|create|build|generate|prepare|put together|do)\s+(?:me\s+)?(?:a\s+|an\s+|one\s+|a single\s+)?"
+                      r"(?:single\s+)?pdf(?: file| document)?\s+(?:of|from|with|out of|using|containing|for)\s+(.+)", s)
+         or re.fullmatch(r"(?:combine|merge|put|join|add|turn|make|stick|collect|gather)\s+(?:all\s+)?(.+?)\s+(?:all\s+)?"
+                         r"(?:in|into|to|as)\s+(?:a\s+|one\s+|a single\s+)?(?:single\s+)?pdf(?: file| document)?", s)
+         or re.fullmatch(r"(?:combine|merge|put|join|turn|make|stick|collect|gather)\s+(?:all\s+)?(.+?)\s+(?:all\s+)?"
+                         r"(?:in|into|to|as)\s+(?:one|a single)\s+(?:document|file)", s))
+    if m and _FILEREF.search(m.group(1)) or m and re.search(r"\.\w{3,4}\b|,| and ", m.group(1)):
+        return files("pdf", m.group(1))
+
+    # convert to another type ("convert this to png", "change the file type to webp", "save these as jpg")
+    m = (re.fullmatch(rf"(?:convert|change)\s+(?:the\s+|its\s+|their\s+)?(?:file\s+)?(?:type|format|extension)(?:\s+of\s+(.+?))?\s+"
+                      rf"(?:from\s+\w+\s+)?(?:to|into)\s+(?:an?\s+)?{_FMT}", s)
+         or re.fullmatch(rf"(?:convert|change|turn|make|save|export|transform)\s+(.+?)\s+(?:from\s+\w+\s+)?(?:to|into|as|in)\s+"
+                         rf"(?:an?\s+|the\s+)?{_FMT}(?:\s+(?:format|files?|images?|type|file type))?", s))
+    if m:
+        obj = m.group(1)
+        if obj in ("this", "that", "it", "these", "those", "them", "this one", "that one"):
+            obj = "selected"
+        if obj and not _FILEREF.search(obj) and not re.search(r"\b(jpe?g|png|webp|bmp|gif|tiff?|heic)s?\b", obj) \
+                and not re.search(r"\.\w{3,4}\b|,| and ", obj):
+            obj = obj if len(obj.split()) <= 4 else None                   # a spoken file name, or not about files at all
+            if obj is None:
+                return None
+        if obj and re.fullmatch(r"(?:this|that|these|those|the|my|all)?\s*(?:jpe?g|png|webp|bmp|gif|tiff?|heic)s?(?: files?| images?)?", obj):
+            obj = "selected"                                                # "convert this jpg to png"
+        return files("convert", obj, to=m.group(2))
+
+    # smaller files: images re-saved smaller, anything else (or "zip") into a .zip
+    m = (re.fullmatch(r"(?:compress|zip(?: up)?|shrink|squash)\s+(.+?)(?:\s+(?:into|in|to|as)\s+(?:a\s+)?zip(?: file| folder| archive)?)?", s)
+         or re.fullmatch(r"(?:reduce|cut|lower|decrease|shrink)\s+(?:down\s+)?(?:the\s+)?(?:file\s+)?size\s+of\s+(.+)", s)
+         or re.fullmatch(r"(?:make|create)\s+(?:a\s+)?zip(?: file| archive)?\s+(?:of|from|with)\s+(.+)", s)
+         or re.fullmatch(r"make\s+(.+?)\s+(?:smaller|lighter)(?:\s+in size)?", s))
+    if m and (_FILEREF.search(m.group(1)) or m.re.pattern.startswith(("(?:compress", "(?:make|create)\\s+(?:a\\s+)?zip"))):
+        if re.search(r"\b(window|screen|orb|ball|sphere|font|text|volume|yourself)\b", m.group(1)):
+            return None
+        return files("zip" if re.search(r"\bzip\b", t) else "compress", m.group(1))
+    return None
+
+
 def _speed(s: str) -> float | None:
     s = re.sub(r"\s*(?:x|times|speed)$", "", s.strip()).strip()
     if re.fullmatch(r"\d+(?:\.\d+)?|\.\d+", s):
@@ -417,7 +517,9 @@ def route(text: str, strict: bool = False, _probe: bool = False) -> str | None:
     if re.fullmatch(r"(what can you do|what are you capable of|help|help me|what are your (commands|abilities|features|skills)|"
                     r"show (me )?(the |your )?commands|what do you do|what can i (say|ask)( you)?)", t):
         return ("I can open and close apps and websites, control the volume, brightness, music and your browser, read "
-                "your screen, set reminders and timers, take notes, check security, do sums and answer questions, sir. "
+                "your screen, convert, compress and zip your files, turn pictures into a PDF or slides, research a topic "
+                "and build you a presentation, set reminders and timers, take notes, check security, do sums and "
+                "answer questions, sir. "
                 "Say stay with me for a longer chat, or double-click me to type instead.")
 
     # --- diagnostics & security sweep
@@ -524,6 +626,9 @@ def route(text: str, strict: bool = False, _probe: bool = False) -> str | None:
     if m:
         run("remember", {"fact": m.group(1).strip()})
         return "Committed to memory, sir."
+    reply = _files(t, run, free)                         # before the arithmetic below: "these 4 images" has a digit
+    if reply:
+        return reply
 
     # --- arithmetic: exact and instant ("what's 15 times 23", "18 percent of 2450", "square root of 144")
     m = re.fullmatch(r"(?:(?:what(?:'s| is)|calculate|compute|how much is|work out|solve)\s+)?(.*\d.*)", t) if free else None

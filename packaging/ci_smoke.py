@@ -110,6 +110,34 @@ check("reflex: time", lambda: router.route("what time is it"))
 check("reflex: maths goes to the calculator", lambda: tools.calculate("18% of 2450"))
 check("face models load", lambda: importlib.import_module("jarvis.security.face_engine").FaceEngine() and None)
 
+
+def file_features():
+    """Convert, compress, zip, a PDF and a PowerPoint from images, picked by name (no File Explorer on a CI runner)."""
+    import tempfile
+    from pathlib import Path
+    from PIL import Image
+    from jarvis import filetools as ft
+    d = Path(tempfile.mkdtemp())
+    for i, c in enumerate(["red", "green", "blue"]):
+        Image.new("RGB", (1200, 800), c).save(d / f"shot{i}.jpg")
+    ft.open_file = lambda p: None
+    ft._explorer_state = lambda: {"folder": d, "selected": [], "sort": ""}
+    ft.convert([d / "shot0.jpg"], "png")
+    ft.compress([d / "shot1.jpg"])
+    ft.make_zip([d / "shot2.jpg"])
+    files, _ = ft.resolve_files("the last 3 images", "image")
+    ft.make_pdf(files, name="all")
+    ft.make_pptx(files, name="all")
+    made = sorted(p.name for p in d.iterdir() if not p.name.startswith("shot") or "(compressed)" in p.name or p.suffix != ".jpg")
+    want = {"shot0.png", "shot2.zip", "all.pdf", "all.pptx"}
+    assert want <= set(made), made
+    return ", ".join(made)
+
+
+check("files: convert, compress, zip, PDF and PowerPoint", file_features)
+check("files: 'make a pdf of these 4 images' is a reflex",
+      lambda: "file_tools" if router._files("make a pdf of these 4 images", lambda n, a: n, True) == "file_tools" else 1 / 0)
+
 if sys.platform == "darwin":
     from jarvis import macos
 

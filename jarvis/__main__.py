@@ -84,6 +84,7 @@ class Jarvis:
         self.alt = None              # the other recogniser's version of the command being handled
         self.heard_at = 0.0          # when the current command finished being spoken (for the latency log)
         Ctx.cfg, Ctx.speaker, Ctx.alerts, Ctx.security = cfg, self.speaker, self.alerts, self.security
+        Ctx.report = self.report                 # finished background jobs (presentations) speak up when he's free
 
     # ------------------------------------------------------------------ boot
     def boot(self):
@@ -228,6 +229,27 @@ class Jarvis:
                     return
                 time.sleep(0.5)
         threading.Thread(target=wait_then_say, daemon=True, name="announce").start()
+
+    def report(self, msg: str):
+        """A job the user asked for has finished in the background (a presentation): a notification at once, and
+        spoken as soon as Jarvis isn't talking or listening. Unlike announce(), quiet hours don't silence it: the
+        user is clearly awake and waiting for it."""
+        from .tools import notify
+        try:
+            notify("Jarvis", msg.removeprefix("Sir, "))
+        except Exception:
+            pass
+        STATE.add("SYS", msg)
+
+        def wait_then_say():
+            give_up = time.time() + 300
+            while time.time() < give_up and self.running:
+                if not (self.speaker.busy or STATE.thinking or (self.listener and self.listener.hearing)
+                        or time.time() < self.deadline):
+                    self.speaker.say(msg, log_it=False)
+                    return
+                time.sleep(0.4)
+        threading.Thread(target=wait_then_say, daemon=True, name="report").start()
 
     def sentinel(self):
         """Proactive remarks, the way the film's Jarvis volunteers things: low power warnings."""

@@ -72,6 +72,7 @@ class Ctx:
     execute = None         # Brain._execute, so protocols go through the same confirmation rules
     last_opened = None      # ("app", name) or ("tab", url): what "close it" / "close that" refers to
     note = None             # something the reflexes found out that the language model should know for this request
+    report = None           # report(message): say a finished background job's result as soon as Jarvis is free
 
 
 def _ps(cmd: str, timeout: int = 30) -> str:
@@ -589,7 +590,9 @@ def _chrome_exe() -> str | None:
     return None
 
 
+# hidden: every Coursera phrasing is routed here by the reflexes (router._coursera), so the model needn't see it
 @tool("Coursera lessons in Chrome: open or resume a course, play, pause, next/previous video, speed, autoplay on/off, status.",
+      hidden=True,
       action=("string", "'open', 'resume' (open and autoplay), 'progress', 'dashboard', 'play', 'pause', 'next', 'previous', 'restart', 'forward', 'back', 'speed', "
                         "'autoplay_on', 'autoplay_off' or 'status'", True),
       value=("string", "course name for 'open'; rate like 1.5 for 'speed'; seconds for forward/back", False))
@@ -1078,6 +1081,63 @@ def delete_path(path: str):
     return f"Moved {p} to the Recycle Bin." if not p.exists() else f"Could not delete {p}."
 
 
+@tool("The user's own files: convert images to another type (png, jpg, webp, bmp, gif, tiff, ico, pdf; Word/PowerPoint/"
+      "Excel to pdf), compress or zip files, or put their images into one PDF ('one document') or PowerPoint.",
+      action=("string", "'convert', 'compress', 'zip', 'pdf' or 'pptx'", True),
+      files=("string", "'selected' (selected in File Explorer), e.g. 'last 4 images', or file names", True),
+      to=("string", "target type for convert, e.g. png", False),
+      save_to=("string", "folder to save in; empty = next to the originals", False))
+def file_tools(action: str, files: str = "selected", to: str = "", save_to: str = "", name: str = ""):
+    from . import filetools as ft
+    a = action.lower().strip().replace(" ", "_")
+    try:
+        paths, how = ft.resolve_files(files, "image" if a in ("pdf", "pptx", "ppt", "powerpoint", "slides") else "")
+        if a == "convert":
+            done = ft.convert(paths, to or "png", save_to, name)
+        elif a in ("compress", "shrink"):
+            done = ft.compress(paths, save_to, name)
+        elif a == "zip":
+            done = ft.compress(paths, save_to, name, zip_it=True)
+        elif a == "pdf":
+            done = ft.make_pdf(paths, save_to, name)
+        elif a in ("pptx", "ppt", "powerpoint", "slides"):
+            done = ft.make_pptx(paths, save_to, name)
+        else:
+            return f"Unknown action '{action}'. Use convert, compress, zip, pdf or pptx."
+    except ft.FileError as e:
+        return str(e)
+    except Exception as e:
+        log.exception("file_tools failed")
+        return f"That didn't work, sir: {e}"
+    if how.startswith(("the first", "the last")):                 # picked by position: say which, so a wrong guess shows
+        names = [p.name for p in paths]
+        listed = ", ".join(names[:-1]) + " and " + names[-1] if len(names) > 1 else names[0]
+        return f"Using {how}: {listed}. {done}"
+    return done
+
+
+@tool("Research a subject online and build a PowerPoint presentation about it, then open it. Not for the user's own "
+      "pictures or files (use file_tools).",
+      topic=("string", "what the presentation is about", True),
+      slides=("integer", "number of content slides, default 8", False))
+def make_presentation(topic: str, slides: int = 8, save_to: str = ""):
+    from . import filetools as ft
+    # The small model sometimes sends "slides of the pictures I picked" here: those are the user's files, not a subject.
+    if re.search(r"\b(selected|picked|chosen|chose|highlighted|these|those)\b|^(?:my |the )?(?:selected |picked )?"
+                 r"(?:pictures|photos|images|screenshots|files|pics)$", topic.strip().lower()):
+        return file_tools("pptx", "selected", save_to=save_to)
+
+    def done(msg: str):
+        if Ctx.report:
+            Ctx.report(msg)
+        elif Ctx.speaker:
+            Ctx.speaker.say(msg)
+    try:
+        return ft.presentation(topic, slides, save_to, Ctx.cfg, done)
+    except ft.FileError as e:
+        return str(e)
+
+
 @tool("Force-kill a process (unsaved work is lost). Only for 'kill', 'force close' or a frozen app; otherwise use "
       "close_app.", risky=True, target=("string", "process name or PID", True))
 def kill_process(target: str):
@@ -1134,7 +1194,8 @@ def jarvis_voice(action: str):
     return "Voice muted. I'll reply on screen only." if action == "mute" else "Voice restored."
 
 
-@tool("Control Jarvis's own on-screen orb (the glowing ball).",
+# hidden: hide/show/console/colour/size/move of the orb are all reflexes (router.route), so the model needn't see it
+@tool("Control Jarvis's own on-screen orb (the glowing ball).", hidden=True,
       action=("string", "'hide', 'show', 'console' (typing window), 'close_console', 'colour', 'bigger', 'smaller' or 'move'", True),
       value=("string", "colour: gold, blue, green, purple, red, white. move: top left, top right, bottom left, bottom right, centre", False))
 def orb(action: str, value: str = ""):

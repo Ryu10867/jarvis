@@ -112,6 +112,21 @@ the volume to 20").
 **Through the language model:** conversation with the Jarvis personality, general knowledge, "what's on my screen"
 (OCR + summary), clipboard, finding/opening/deleting files, processes, anything phrased unusually.
 
+**Files** (`jarvis/filetools.py`). Select files in File Explorer (Finder on a Mac), or name them, or point by
+position, and say:
+
+| Say | He does |
+|---|---|
+| "convert this to PNG", "change the file type of beach.jpg to webp", "save these as JPG on the desktop" | converts images to PNG, JPG, WebP, BMP, GIF, TIFF, ICO or PDF; Word, PowerPoint and Excel files to PDF (Office needed) |
+| "make a PDF of these 4 images", "make a PDF of the 4 images from the right", "combine cat.png, beach and image 2034 into one PDF and call it holiday" | one PDF, each image on its own A4 page, in the order File Explorer shows them, then opens it |
+| "make a PPT of these images", "put the last three pictures in a PowerPoint" | one image per slide, then opens it |
+| "compress this image", "reduce the size of these photos", "zip these files", "compress this folder" | images re-saved smaller as *name (compressed)*; anything else goes into a .zip |
+| "make a presentation on black holes", "research the French Revolution and make a PPT with 6 slides" | looks the subject up on Wikipedia, has the local model write the slides (bullets, a key fact per slide, speaker notes), adds the article's photos, saves it in *Documents\Jarvis\Presentations* and opens it, about a minute later |
+
+Results go next to the originals unless you say where ("… and save it in Downloads"); nothing is ever overwritten.
+"From the right" / "the last 4" counts in the order the open Explorer window shows its files; he names the files he
+picked, so a wrong guess is easy to spot.
+
 **He gets faster with use:** a sentence that led to the same simple action twice is done instantly from then on
 (`data/learned_commands.json`). Say *"that was wrong"* to make him unlearn the last one.
 

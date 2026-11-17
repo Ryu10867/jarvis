@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jarvis-assistant"
-version = "1.1.0"
+version = "1.2.0"
 description = "J.A.R.V.I.S.: an offline, Iron-Man-style voice assistant and laptop security layer for Windows and macOS"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -30,6 +30,8 @@ dependencies = [
     "onnxruntime",
     "onnx-asr[hub]",
     "piper-tts",
+    "Pillow>=10",                                       # image conversion, compression, images into PDF
+    "python-pptx>=1.0",                                 # PowerPoint: slides from images, researched presentations
 ]
 
 [project.scripts]
