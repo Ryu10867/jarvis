@@ -140,14 +140,16 @@ kbd { border: 1px solid var(--line-2); border-bottom-width: 2px; border-radius: 
 @media (max-width: 900px) { .hero .lead { grid-template-columns: minmax(0, 1fr); padding-block: 30px 40px; } .stage { order: -1; } .orbwrap { width: min(92%, 400px); margin-block: -20px -30px; } }
 
 /* ---------- the little Jarvis that follows you down the page, like the real one in the corner of the desktop */
-.mini { position: fixed; right: calc(10px + env(safe-area-inset-right, 0px)); bottom: calc(6px + env(safe-area-inset-bottom, 0px)); z-index: 18; display: flex; align-items: center; gap: 0; pointer-events: none; }
+.mini { position: fixed; right: calc(10px + env(safe-area-inset-right, 0px)); bottom: calc(6px + env(safe-area-inset-bottom, 0px)); z-index: 18; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; pointer-events: none; }
 .mini-btn { width: 124px; height: 124px; padding: 0; border: 0; background: none; cursor: pointer; border-radius: 50%; opacity: 0; transform: scale(.4) translateY(30px); transition: opacity .6s ease, transform .9s var(--ease); pointer-events: none; }
 .mini.on .mini-btn { opacity: 1; transform: none; pointer-events: auto; }
 .mini-btn canvas { width: 100%; height: 100%; display: block; }
-.mini-say { max-width: min(250px, 58vw); background: rgba(3, 4, 7, .93); border: 1px solid var(--line-2); border-radius: 12px 12px 3px 12px; padding: 10px 14px 11px; font: italic 400 1.08rem/1.3 var(--voice); color: var(--text); opacity: 0; transform: translateX(14px) scale(.96); transform-origin: 100% 100%; transition: opacity .45s ease, transform .6s var(--ease); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); margin-right: -8px; }
+.mini-say { max-width: 230px; background: rgba(3, 4, 7, .96); border: 1px solid var(--line-2); border-radius: 12px 12px 3px 12px; padding: 9px 13px 10px; font: italic 400 1.02rem/1.3 var(--voice); color: var(--text); opacity: 0; transform: translateY(10px) scale(.96); transform-origin: 100% 100%; transition: opacity .45s ease, transform .6s var(--ease); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); margin-right: 18px; }
+@media (max-width: 1100px) { .mini-say { display: none; } }        /* no free margin for it: the little orb alone is enough */
 .mini-say.show { opacity: 1; transform: none; }
 .mini-say b { display: block; font: 500 .6rem/1 var(--mono); font-style: normal; letter-spacing: .18em; color: var(--jc); margin-bottom: 6px; }
-@media (max-width: 600px) { .mini-btn { width: 92px; height: 92px; } .mini-say { font-size: .98rem; } }
+@media (max-width: 1500px) { .mini-btn { width: 104px; height: 104px; } }
+@media (max-width: 600px) { .mini-btn { width: 84px; height: 84px; } }
 
 /* ---------- facts strip */
 .facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); }
@@ -312,14 +314,14 @@ kbd { border: 1px solid var(--line-2); border-bottom-width: 2px; border-radius: 
 .sizes b { color: var(--ok); font-weight: 500; text-align: right; }
 @keyframes shrink { from { width: 100%; } }
 /* a researched deck */
-.deck { width: 268px; aspect-ratio: 16 / 9; background: #0b0d12; border-radius: 6px; border: 1px solid rgba(255, 255, 255, .12); position: relative; padding: 16px 16px; box-shadow: 0 18px 40px -16px rgba(0, 0, 0, .9); animation: pop .7s var(--ease) both; }
-.deck i { display: block; width: 22px; height: 2px; background: var(--gold); }
-.deck h5 { margin: 6px 0 10px; font: 600 .82rem/1.15 var(--display); color: #f2f4f8; width: 60%; }
-.deck p { margin: 0 0 6px; width: 56%; height: 4px; border-radius: 2px; background: rgba(242, 244, 248, .55); }
-.deck p:nth-of-type(2) { width: 50%; } .deck p:nth-of-type(3) { width: 58%; } .deck p:nth-of-type(4) { width: 44%; }
-.deck .kf { position: absolute; right: 14px; top: 26px; width: 34%; bottom: 14px; border-radius: 4px; background: #141822; border-left: 2px solid var(--gold); padding: 8px; font: 500 .48rem/1 var(--mono); letter-spacing: .12em; color: var(--gold); }
-.deck .kf strong { display: block; margin-top: 12px; font: 600 1.15rem/1 var(--display); letter-spacing: 0; color: #f2f4f8; }
-.deck .kf em { display: block; margin-top: 4px; font: 400 .55rem/1.2 var(--body); font-style: normal; letter-spacing: 0; color: #9aa4b5; }
+.slidemock { width: 268px; aspect-ratio: 16 / 9; background: #0b0d12; border-radius: 6px; border: 1px solid rgba(255, 255, 255, .12); position: relative; padding: 16px 16px; box-shadow: 0 18px 40px -16px rgba(0, 0, 0, .9); animation: pop .7s var(--ease) both; }
+.slidemock i { display: block; width: 22px; height: 2px; background: var(--gold); }
+.slidemock h5 { margin: 6px 0 10px; font: 600 .82rem/1.15 var(--display); color: #f2f4f8; width: 60%; }
+.slidemock p { margin: 0 0 6px; width: 56%; height: 4px; border-radius: 2px; background: rgba(242, 244, 248, .55); }
+.slidemock p:nth-of-type(2) { width: 50%; } .slidemock p:nth-of-type(3) { width: 58%; } .slidemock p:nth-of-type(4) { width: 44%; }
+.slidemock .kf { position: absolute; right: 14px; top: 26px; width: 34%; bottom: 14px; border-radius: 4px; background: #141822; border-left: 2px solid var(--gold); padding: 8px; font: 500 .48rem/1 var(--mono); letter-spacing: .12em; color: var(--gold); }
+.slidemock .kf strong { display: block; margin-top: 12px; font: 600 1.15rem/1 var(--display); letter-spacing: 0; color: #f2f4f8; }
+.slidemock .kf em { display: block; margin-top: 4px; font: 400 .55rem/1.2 var(--body); font-style: normal; letter-spacing: 0; color: #9aa4b5; }
 .out.deckout { gap: 10px; align-content: center; }
 .prog3 { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 .prog3 span { font: 500 .62rem/1 var(--mono); letter-spacing: .06em; padding: 5px 8px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .12); color: var(--faint); animation: lit .4s both; }
@@ -335,6 +337,19 @@ kbd { border: 1px solid var(--line-2); border-bottom-width: 2px; border-radius: 
 .xstep h3 { font-size: clamp(1.5rem, 2.6vw, 2.05rem); }
 .xstep p { color: var(--muted); max-width: 46ch; }
 .xstep q { font-family: var(--voice); font-style: italic; font-size: 1.2rem; color: var(--text); quotes: "\201C" "\201D"; }
+@media (min-width: 901px) and (max-height: 820px) {       /* short laptop screens: the whole mock window still fits */
+  .fx-vis, .flow-vis { top: 72px; }
+  .tile .th { aspect-ratio: 16 / 9; }
+  .tile small { display: none; }
+  .fx-say { min-height: 46px; padding-top: 9px; }
+  .fx-grid { padding-block: 6px 10px; gap: 8px; }
+  .fx-out { height: 150px; }
+  .pages { transform: scale(.78); transform-origin: 50% 8%; }
+  .fx-reply { min-height: 62px; padding-block: 8px 12px; }
+  .fx-reply p { font-size: 1.02rem; }
+  .vis canvas { height: 150px; }
+  .trace li { padding-block: 4px; }
+}
 @media (max-width: 900px) {
   .fx-flow { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .fx-vis { position: relative; top: auto; }
@@ -349,7 +364,7 @@ kbd { border: 1px solid var(--line-2); border-bottom-width: 2px; border-radius: 
   .pages { transform: scale(.66); transform-origin: 50% 12%; }
   .conv { font-size: 1.2rem; }
   .xstep { min-height: 62vh; }
-  .deck { width: 200px; }
+  .slidemock { width: 200px; }
   .prog3 span { font-size: .56rem; padding: 4px 6px; }
   .sizes div { grid-template-columns: 128px minmax(0, 1fr) 48px; font-size: .64rem; }
   .fx-reply { min-height: 64px; padding: 8px 12px 12px; }
@@ -816,7 +831,7 @@ thead th { background: rgba(255, 255, 255, .04); }
               <div><span>IMG_2032 (compressed)</span><s style="width:18%"></s><b>0.9 MB</b></div>
               <div><span>IMG_2033 (compressed)</span><s style="width:20%"></s><b>0.9 MB</b></div>
             </div><span class="badge">14.4 MB &rarr; 2.7 MB</span></div>
-            <div class="out deckout" data-s="4"><div class="deck"><i></i><h5>The Mysterious World of Black Holes</h5><p></p><p></p><p></p><p></p><div class="kf">KEY FACT<strong>1916</strong><em>Schwarzschild's solution</em></div></div>
+            <div class="out deckout" data-s="4"><div class="slidemock"><i></i><h5>The Mysterious World of Black Holes</h5><p></p><p></p><p></p><p></p><div class="kf">KEY FACT<strong>1916</strong><em>Schwarzschild's solution</em></div></div>
               <div class="prog3"><span>Wikipedia &#10003;</span><span>Slides written &#10003;</span><span>Opened in PowerPoint &#10003;</span></div></div>
           </div>
           <div class="fx-reply">
@@ -1716,6 +1731,9 @@ thead th { background: rgba(255, 255, 255, .04); }
     if (!mini.on || !LINES[id] || mini.said[id]) return;
     mini.said[id] = 1;
     var text = LINES[id], r = ++sayRun, n = 0;
+    if ((innerWidth - 1140) / 2 < 250) {             /* no free margin beside the page: the orb speaks, no bubble over the text */
+      mini.speakUntil = performance.now() + text.length * 34 + 500; kick(); return;
+    }
     miniSay.innerHTML = "<b>J.A.R.V.I.S.</b><span></span>";
     var span = miniSay.lastChild;
     miniSay.classList.add("show");
@@ -2419,7 +2437,7 @@ thead th { background: rgba(255, 255, 255, .04); }
     /* hero recedes as you leave it (the orb itself comes apart, in its own loop) */
     var hs = function () { return { trigger: ".hero", start: "top top", end: "bottom top", scrub: .6 }; };
     G.to(".hero .copy", { y: -110, opacity: 0, ease: "none", scrollTrigger: hs() });
-    G.to(".stage", { y: 160, scale: .9, ease: "none", scrollTrigger: hs() });
+    G.to(".stage", { y: 90, scale: .92, opacity: 0, ease: "none", scrollTrigger: hs() });   /* fades before it can sit on the figures below */
     G.to(".hero .facts", { y: -40, opacity: .2, ease: "none", scrollTrigger: hs() });
 
     /* how-it-works rail fills as the steps pass */
