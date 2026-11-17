@@ -247,6 +247,116 @@ kbd { border: 1px solid var(--line-2); border-bottom-width: 2px; border-radius: 
 @media (max-width: 900px) { .groups { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .groups section { border-left: 1px solid var(--line) !important; border-top: 1px solid var(--line) !important; } .groups section:nth-child(odd) { border-left: 0 !important; } .groups section:nth-child(-n+2) { border-top: 0 !important; } }
 @media (max-width: 600px) { .groups { grid-template-columns: minmax(0, 1fr); } .groups section { border-left: 0 !important; } .groups section:nth-child(2) { border-top: 1px solid var(--line) !important; } }
 
+/* ---------- files and presentations: a mock File Explorer that acts out each step as you scroll past it */
+.fx-flow { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, .92fr); gap: 56px; align-items: start; }
+.fx-vis { position: sticky; top: 92px; z-index: 2; }
+.fx { border-radius: var(--r); overflow: hidden; }
+.fx-bar { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid rgba(255, 255, 255, .08); font: 500 .74rem/1 var(--mono); letter-spacing: .1em; color: var(--muted); }
+.fx-bar .dots { display: flex; gap: 6px; }
+.fx-bar .dots i { width: 9px; height: 9px; border-radius: 50%; background: rgba(255, 255, 255, .14); }
+.fx-bar b { margin-left: auto; font-weight: 500; color: var(--faint); }
+.fx-say { padding: 12px 16px 4px; min-height: 52px; }
+.fx-say p, .fx-reply p { display: none; margin: 0; }
+.fx-say .tag, .fx-reply .tag { display: block; font: 500 .64rem/1 var(--mono); letter-spacing: .16em; color: var(--arc); margin-bottom: 5px; }
+.fx-say p { font-size: 1.02rem; color: var(--text); }
+.fx-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; padding: 10px 16px 14px; }
+.tile { border: 1px solid rgba(255, 255, 255, .08); border-radius: 10px; padding: 6px 6px 7px; display: grid; gap: 5px; position: relative; transition: border-color .35s, background .35s, transform .45s var(--ease), opacity .45s; min-width: 0; }
+.tile .th { aspect-ratio: 16 / 11; border-radius: 6px; }
+.tile b { font: 500 .7rem/1.2 var(--mono); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile small { font: 400 .64rem/1 var(--mono); color: var(--faint); }
+.tile::after { content: "\2713"; position: absolute; top: 9px; left: 9px; width: 17px; height: 17px; border-radius: 4px; display: grid; place-items: center; font: 700 .7rem/1 var(--body); color: #04060a; background: var(--jc); opacity: 0; transform: scale(.6); transition: opacity .3s, transform .35s var(--ease); }
+.tile.new { opacity: 0; transform: scale(.85); }
+.p1 { background: radial-gradient(circle at 76% 28%, #fff3c4 0 8%, transparent 9%), linear-gradient(#4fa9e8, #a9dcff 55%, #f0d39a 56%, #ddb877); }
+.p2 { background: radial-gradient(circle at 50% 60%, #ffd27a 0 11%, transparent 12%), linear-gradient(#2b1d4f, #c4447a 48%, #ff9a5a 60%, #3a2448 61%); }
+.p3 { background: radial-gradient(ellipse at 30% 75%, #2a5c3c 0 30%, transparent 31%), linear-gradient(#bfe3c7, #8fc89c 45%, #2f6b45 46%, #1b4430); }
+.p4 { background: linear-gradient(150deg, transparent 55%, #e6edf6 55% 60%, transparent 60%), linear-gradient(#93c3e6, #d6ecfa 44%, #6f7f95 45%, #45526a 70%, #dfe8f3 71%); }
+.p5 { background: radial-gradient(circle at 80% 24%, #f5f1e0 0 5%, transparent 6%), linear-gradient(transparent 62%, #121730 62%), repeating-linear-gradient(90deg, #2a3768 0 9%, #1a2348 9% 15%); }
+.p6 { background: radial-gradient(circle at 22% 30%, #fff 0 6%, transparent 7%), linear-gradient(#bcd3ec, #eef4fb 52%, #ffffff 53%, #d9e5f3); }
+.fx-out { position: relative; height: 200px; margin: 0 16px; border-radius: 12px; border: 1px dashed rgba(255, 255, 255, .1); overflow: hidden; }
+.out { position: absolute; inset: 0; display: none; place-items: center; }
+.fx-reply { padding: 12px 16px 16px; min-height: 76px; }
+.fx-reply .tag { color: var(--jc); }
+.fx-reply p { font-family: var(--voice); font-style: italic; font-size: 1.12rem; line-height: 1.32; color: var(--text); }
+/* which step is showing */
+.fx[data-step="0"] [data-s~="0"], .fx[data-step="1"] [data-s~="1"], .fx[data-step="2"] [data-s~="2"],
+.fx[data-step="3"] [data-s~="3"], .fx[data-step="4"] [data-s~="4"] { display: block; animation: fxin .55s var(--ease) both; }
+.fx[data-step="0"] .out[data-s~="0"], .fx[data-step="1"] .out[data-s~="1"], .fx[data-step="2"] .out[data-s~="2"],
+.fx[data-step="3"] .out[data-s~="3"], .fx[data-step="4"] .out[data-s~="4"] { display: grid; }
+@keyframes fxin { from { opacity: 0; transform: translateY(8px); } }
+.fx[data-step="0"] .tile:nth-child(-n+4), .fx[data-step="1"] .tile:nth-child(n+3):nth-child(-n+6),
+.fx[data-step="2"] .tile:nth-child(2), .fx[data-step="3"] .tile:nth-child(-n+3) {
+  border-color: color-mix(in srgb, var(--jc) 75%, transparent); background: color-mix(in srgb, var(--jc) 13%, transparent); }
+.fx[data-step="0"] .tile:nth-child(-n+4)::after, .fx[data-step="1"] .tile:nth-child(n+3):nth-child(-n+6)::after,
+.fx[data-step="2"] .tile:nth-child(2)::after, .fx[data-step="3"] .tile:nth-child(-n+3)::after { opacity: 1; transform: none; }
+.fx[data-step="2"] .tile.new, .fx[data-step="3"] .tile.new, .fx[data-step="4"] .tile.new { opacity: 1; transform: none; }
+.fx[data-step="2"] .tile.new { border-color: var(--ok); box-shadow: 0 0 22px -6px var(--ok); }
+.fx[data-step="4"] .tile { opacity: .45; }
+/* the PDF: pages fan out of the grid */
+.pages { position: relative; width: 300px; height: 170px; }
+.pg { position: absolute; top: 12px; width: 104px; aspect-ratio: 1 / 1.414; background: #fff; border-radius: 3px; padding: 10px 8px; box-shadow: 0 14px 30px -12px rgba(0, 0, 0, .9); animation: fan .8s var(--ease) both; }
+.pg .th { aspect-ratio: 16 / 11; border-radius: 2px; margin-top: 22px; }
+.pg:nth-child(1) { left: 20px; rotate: -9deg; animation-delay: 0s; } .pg:nth-child(2) { left: 78px; rotate: -3deg; animation-delay: .08s; }
+.pg:nth-child(3) { left: 136px; rotate: 3deg; animation-delay: .16s; } .pg:nth-child(4) { left: 194px; rotate: 9deg; animation-delay: .24s; }
+@keyframes fan { from { opacity: 0; transform: translateY(-70px) scale(.7); } }
+.badge { position: absolute; right: 12px; bottom: 10px; font: 500 .68rem/1 var(--mono); letter-spacing: .1em; padding: 6px 9px; border-radius: 999px; background: rgba(0, 0, 0, .55); border: 1px solid rgba(255, 255, 255, .14); color: var(--text); }
+/* convert: the new PNG next to the original */
+.conv { display: flex; align-items: center; gap: 22px; font: 600 1.6rem/1 var(--display); color: var(--text); }
+.conv span { padding: 14px 18px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, .14); }
+.conv span:last-child { border-color: var(--ok); color: var(--ok); box-shadow: 0 0 26px -8px var(--ok); animation: pop .6s .25s var(--ease) both; }
+.conv i { font-style: normal; color: var(--jc); }
+@keyframes pop { from { opacity: 0; transform: scale(.7); } }
+/* compress: sizes shrink */
+.sizes { width: min(100%, 420px); display: grid; gap: 12px; padding: 0 18px; }
+.sizes div { display: grid; grid-template-columns: 158px minmax(0, 1fr) 56px; align-items: center; gap: 10px; font: 400 .72rem/1 var(--mono); color: var(--muted); }
+.sizes s { display: block; height: 8px; border-radius: 4px; background: linear-gradient(90deg, var(--jc), color-mix(in srgb, var(--jc) 40%, #fff)); animation: shrink 1.2s .3s var(--ease) both; text-decoration: none; }
+.sizes b { color: var(--ok); font-weight: 500; text-align: right; }
+@keyframes shrink { from { width: 100%; } }
+/* a researched deck */
+.deck { width: 268px; aspect-ratio: 16 / 9; background: #0b0d12; border-radius: 6px; border: 1px solid rgba(255, 255, 255, .12); position: relative; padding: 16px 16px; box-shadow: 0 18px 40px -16px rgba(0, 0, 0, .9); animation: pop .7s var(--ease) both; }
+.deck i { display: block; width: 22px; height: 2px; background: var(--gold); }
+.deck h5 { margin: 6px 0 10px; font: 600 .82rem/1.15 var(--display); color: #f2f4f8; width: 60%; }
+.deck p { margin: 0 0 6px; width: 56%; height: 4px; border-radius: 2px; background: rgba(242, 244, 248, .55); }
+.deck p:nth-of-type(2) { width: 50%; } .deck p:nth-of-type(3) { width: 58%; } .deck p:nth-of-type(4) { width: 44%; }
+.deck .kf { position: absolute; right: 14px; top: 26px; width: 34%; bottom: 14px; border-radius: 4px; background: #141822; border-left: 2px solid var(--gold); padding: 8px; font: 500 .48rem/1 var(--mono); letter-spacing: .12em; color: var(--gold); }
+.deck .kf strong { display: block; margin-top: 12px; font: 600 1.15rem/1 var(--display); letter-spacing: 0; color: #f2f4f8; }
+.deck .kf em { display: block; margin-top: 4px; font: 400 .55rem/1.2 var(--body); font-style: normal; letter-spacing: 0; color: #9aa4b5; }
+.out.deckout { gap: 10px; align-content: center; }
+.prog3 { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.prog3 span { font: 500 .62rem/1 var(--mono); letter-spacing: .06em; padding: 5px 8px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .12); color: var(--faint); animation: lit .4s both; }
+.prog3 span:nth-child(1) { animation-delay: .4s; } .prog3 span:nth-child(2) { animation-delay: 1.1s; } .prog3 span:nth-child(3) { animation-delay: 1.8s; }
+@keyframes lit { to { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 55%, transparent); } }
+.fx-steps { list-style: none; margin: 0; padding: 0; position: relative; }
+.xstep { min-height: 60vh; display: grid; align-content: center; gap: 12px; padding: 28px 0 28px 34px; position: relative; border-left: 1px solid var(--line); transition: opacity .45s; }
+.xstep::before { content: ""; position: absolute; left: -6px; top: calc(50% - 5px); width: 11px; height: 11px; border-radius: 50%; background: var(--ink); border: 1px solid var(--line-2); transition: background .4s, border-color .4s, box-shadow .4s; }
+.xstep.on::before { background: var(--jc); border-color: var(--jc); box-shadow: 0 0 14px var(--jc); }
+.fx-flow.live .xstep { opacity: .32; }
+.fx-flow.live .xstep.on { opacity: 1; }
+.xstep .n { font: 500 .74rem/1 var(--mono); color: var(--gold); letter-spacing: .16em; }
+.xstep h3 { font-size: clamp(1.5rem, 2.6vw, 2.05rem); }
+.xstep p { color: var(--muted); max-width: 46ch; }
+.xstep q { font-family: var(--voice); font-style: italic; font-size: 1.2rem; color: var(--text); quotes: "\201C" "\201D"; }
+@media (max-width: 900px) {
+  .fx-flow { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .fx-vis { position: relative; top: auto; }
+  .fx-flow.live .fx-vis { position: sticky; top: calc(8px + env(safe-area-inset-top, 0px)); }
+  .tile b, .tile small, .fx-bar b { display: none; }
+  .fx-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; padding: 6px 12px 8px; }
+  .tile { padding: 3px; border-radius: 6px; }
+  .tile::after { width: 12px; height: 12px; top: 5px; left: 5px; font-size: .55rem; }
+  .fx-say { padding: 8px 12px 2px; min-height: 44px; }
+  .fx-say p { font-size: .92rem; }
+  .fx-out { height: 128px; margin: 0 12px; }
+  .pages { transform: scale(.66); transform-origin: 50% 12%; }
+  .conv { font-size: 1.2rem; }
+  .xstep { min-height: 62vh; }
+  .deck { width: 200px; }
+  .prog3 span { font-size: .56rem; padding: 4px 6px; }
+  .sizes div { grid-template-columns: 128px minmax(0, 1fr) 48px; font-size: .64rem; }
+  .fx-reply { min-height: 64px; padding: 8px 12px 12px; }
+  .fx-reply p { font-size: .98rem; }
+  .xstep { min-height: 50vh; padding-left: 26px; }
+}
+
 /* ---------- a day with Jarvis: pinned and scrolled sideways on wide screens, swiped on phones */
 .day { position: relative; overflow: hidden; border-bottom: 1px solid var(--line); background-color: transparent;
   background-image: radial-gradient(1000px 520px at 78% -14%, color-mix(in srgb, var(--sky) 28%, transparent), transparent 70%); transition: --sky 1.1s ease; }
@@ -427,14 +537,14 @@ footer p { max-width: 90ch; }
   text-shadow: 0 0 2px #000, 0 0 10px #000, 0 0 22px rgba(0, 0, 0, .9);
 }
 /* ---------- glass: every card, tab and console is frosted glass over the constellations */
-.cap, .cap.wide, .groups, .scene, .monitors, .split > div, .need, .vis, .console, .tabs button, .os, .phrases button,
+.cap, .cap.wide, .groups, .scene, .monitors, .split > div, .need, .vis, .fx, .console, .tabs button, .os, .phrases button,
 .caption, .mini-say, .cmd, details, .tbl, .rule, .btn:not(.primary), .term {
   background: linear-gradient(140deg, rgba(255, 255, 255, .085), rgba(255, 255, 255, .02) 42%, rgba(255, 255, 255, .045));
   border: 1px solid rgba(255, 255, 255, .11);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), inset 0 -1px 0 rgba(255, 255, 255, .02), 0 24px 60px -34px rgba(0, 0, 0, .95);
   -webkit-backdrop-filter: blur(16px) saturate(170%); backdrop-filter: blur(16px) saturate(170%);
 }
-.term, .console, .vis { background: linear-gradient(140deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .012) 45%), rgba(0, 0, 0, .42); }
+.term, .console, .vis, .fx { background: linear-gradient(140deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .012) 45%), rgba(0, 0, 0, .42); }
 .rule { background: linear-gradient(90deg, rgba(242, 184, 75, .13), rgba(255, 255, 255, .025)); border-left: 2px solid var(--gold); }
 .monitors div, .monitors div:first-child { background: transparent; border-top-color: rgba(255, 255, 255, .07); }
 .monitors div:hover { background: rgba(255, 255, 255, .04); }
@@ -490,6 +600,7 @@ thead th { background: rgba(255, 255, 255, .04); }
     <nav aria-label="Sections">
       <a href="#how">How it works</a>
       <a href="#can">Abilities</a>
+      <a href="#files">Files</a>
       <a href="#day">A day</a>
       <a href="#security">Security</a>
       <a href="https://github.com/Ryu10867/jarvis">GitHub</a>
@@ -668,6 +779,67 @@ thead th { background: rgba(255, 255, 255, .04); }
   </div>
 </section>
 
+<section class="band" id="files">
+  <div class="wrap">
+    <header>
+      <p class="eyebrow">Files and presentations</p>
+      <h2>Select the files. Say what you want. Done.</h2>
+      <p class="lede">A PDF from your photos, a different image type, smaller files, a zip, a slideshow, or a whole researched presentation: one sentence each, in File Explorer or Finder. Scroll to watch him work.</p>
+    </header>
+    <div class="fx-flow" id="fx-flow">
+      <div class="fx-vis">
+        <div class="fx" id="fx" data-step="0">
+          <div class="fx-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span>Holiday</span><b>FILE EXPLORER</b></div>
+          <div class="fx-say">
+            <span class="tag">YOU</span>
+            <p data-s="0">Make a PDF of these 4 images.</p>
+            <p data-s="1">Make a PDF of the 4 images from the right.</p>
+            <p data-s="2">Convert this to PNG.</p>
+            <p data-s="3">Compress these photos.</p>
+            <p data-s="4">Make a presentation on black holes.</p>
+          </div>
+          <div class="fx-grid" aria-label="Six holiday photos in a folder">
+            <div class="tile"><div class="th p1"></div><b>IMG_2031.jpg</b><small>4.8 MB</small></div>
+            <div class="tile"><div class="th p2"></div><b>IMG_2032.jpg</b><small>5.1 MB</small></div>
+            <div class="tile"><div class="th p3"></div><b>IMG_2033.jpg</b><small>4.5 MB</small></div>
+            <div class="tile"><div class="th p4"></div><b>IMG_2034.jpg</b><small>4.9 MB</small></div>
+            <div class="tile"><div class="th p5"></div><b>IMG_2035.jpg</b><small>3.7 MB</small></div>
+            <div class="tile"><div class="th p6"></div><b>IMG_2036.jpg</b><small>4.2 MB</small></div>
+            <div class="tile new"><div class="th p2"></div><b>IMG_2032.png</b><small>6.3 MB</small></div>
+          </div>
+          <div class="fx-out" aria-hidden="true">
+            <div class="out" data-s="0"><div class="pages"><div class="pg"><div class="th p1"></div></div><div class="pg"><div class="th p2"></div></div><div class="pg"><div class="th p3"></div></div><div class="pg"><div class="th p4"></div></div></div><span class="badge">Holiday (4 images).pdf</span></div>
+            <div class="out" data-s="1"><div class="pages"><div class="pg"><div class="th p3"></div></div><div class="pg"><div class="th p4"></div></div><div class="pg"><div class="th p5"></div></div><div class="pg"><div class="th p6"></div></div></div><span class="badge">Holiday (4 images) (2).pdf</span></div>
+            <div class="out" data-s="2"><div class="conv"><span>.jpg</span><i>&rarr;</i><span>.png</span></div><span class="badge">saved next to the original</span></div>
+            <div class="out" data-s="3"><div class="sizes">
+              <div><span>IMG_2031 (compressed)</span><s style="width:19%"></s><b>0.9 MB</b></div>
+              <div><span>IMG_2032 (compressed)</span><s style="width:18%"></s><b>0.9 MB</b></div>
+              <div><span>IMG_2033 (compressed)</span><s style="width:20%"></s><b>0.9 MB</b></div>
+            </div><span class="badge">14.4 MB &rarr; 2.7 MB</span></div>
+            <div class="out deckout" data-s="4"><div class="deck"><i></i><h5>The Mysterious World of Black Holes</h5><p></p><p></p><p></p><p></p><div class="kf">KEY FACT<strong>1916</strong><em>Schwarzschild's solution</em></div></div>
+              <div class="prog3"><span>Wikipedia &#10003;</span><span>Slides written &#10003;</span><span>Opened in PowerPoint &#10003;</span></div></div>
+          </div>
+          <div class="fx-reply">
+            <span class="tag">J.A.R.V.I.S.</span>
+            <p data-s="0">Done, sir. Holiday (4 images).pdf, 4 pages, saved in Holiday and opened.</p>
+            <p data-s="1">Using the last 4 images in Holiday: IMG_2033.jpg, IMG_2034.jpg, IMG_2035.jpg and IMG_2036.jpg. Done, sir.</p>
+            <p data-s="2">Done, sir. Saved IMG_2032.png in Holiday.</p>
+            <p data-s="3">Done, sir. 3 images: 14.4 MB down to 2.7 MB, 81 percent smaller, saved in Holiday.</p>
+            <p data-s="4">Researching black holes now, sir. I'll have the presentation ready in about a minute.</p>
+          </div>
+        </div>
+      </div>
+      <ol class="fx-steps">
+        <li class="xstep"><p class="n">01 &middot; A PDF OF YOUR PHOTOS</p><h3>Select four photos, ask for a PDF.</h3><p>He takes what's selected in File Explorer, in the order you see it, puts each photo on its own A4 page, and opens the PDF.</p><q>Make a PDF of these 4 images.</q></li>
+        <li class="xstep"><p class="n">02 &middot; BY POSITION OR BY NAME</p><h3>Or just point.</h3><p>&ldquo;From the right&rdquo; counts in the order the open folder shows its files, and he tells you which ones he took. Names work too, even loosely: &ldquo;image 2034&rdquo; finds IMG_2034.jpg.</p><q>Make a PDF of the 4 images from the right.</q></li>
+        <li class="xstep"><p class="n">03 &middot; ANY IMAGE TYPE</p><h3>One command to convert.</h3><p>PNG, JPG, WebP, BMP, GIF, TIFF, ICO or PDF, and Word, PowerPoint or Excel files to PDF. The new file goes next to the original, or wherever you say. Nothing is ever overwritten.</p><q>Convert this to PNG and save it on the desktop.</q></li>
+        <li class="xstep"><p class="n">04 &middot; SMALLER FILES</p><h3>Too big to email? Shrink them.</h3><p>Photos are saved again as smaller copies, and he tells you how much you saved. Anything else goes into a zip.</p><q>Compress these photos.</q></li>
+        <li class="xstep"><p class="n">05 &middot; RESEARCHED PRESENTATIONS</p><h3>Name a subject. A minute later, the deck is open.</h3><p>He researches it on Wikipedia, your local model writes the slides, and the article's photographs go in, with a key fact on every slide, speaker notes and a sources slide.</p><q>Research the French Revolution and make a PPT with six slides.</q></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
 <section class="day" id="day" aria-labelledby="day-h">
   <div class="day-pin">
     <div class="wrap">
@@ -675,13 +847,13 @@ thead th { background: rgba(255, 255, 255, .04); }
         <div class="txt">
           <p class="eyebrow">A day with Jarvis</p>
           <h2 id="day-h">From the first coffee to lights out.</h2>
-          <p class="lede">Seven moments from an ordinary student day. Some he answers, some he raises himself.</p>
+          <p class="lede">Eight moments from an ordinary student day. Some he answers, some he raises himself.</p>
         </div>
         <div class="day-clock" aria-hidden="true"><small>Local time</small><b id="day-clock">07:40</b></div>
       </div>
       <div class="day-bar" aria-hidden="true"><i id="day-bar"></i></div>
     </div>
-    <div class="day-track" id="day-track" tabindex="0" aria-label="Seven moments, scroll sideways">
+    <div class="day-track" id="day-track" tabindex="0" aria-label="Eight moments, scroll sideways">
       <article class="scene" data-time="07:40">
         <header><time>07:40</time><span class="k">Morning</span></header>
         <div class="ex"><p class="j"><span class="tag">J.A.R.V.I.S.</span>Good morning, sir. Three deadlines this week. DBMS Lab 5 is due tomorrow at 11:59 PM.</p></div>
@@ -706,6 +878,11 @@ thead th { background: rgba(255, 255, 255, .04); }
         <header><time>16:30</time><span class="k">Studying</span></header>
         <div class="ex"><p><span class="tag">YOU</span>What's on my screen?</p><p class="j"><span class="tag">J.A.R.V.I.S.</span>A page on deadlocks, sir: the four Coffman conditions, and how breaking any one of them prevents a deadlock.</p></div>
         <p class="what">Reads the screen with the system's own offline OCR, then summarises it with the local model.</p>
+      </article>
+      <article class="scene" data-time="20:15">
+        <header><time>20:15</time><span class="k">Seminar prep</span></header>
+        <div class="ex"><p><span class="tag">YOU</span>Make a presentation on renewable energy with six slides.</p><p class="j"><span class="tag">J.A.R.V.I.S.</span>Researching renewable energy now, sir. I'll have the presentation ready in about a minute.</p><p class="j"><span class="tag">A MINUTE LATER</span>Sir, your presentation on renewable energy is ready: 8 slides. I've opened it for you.</p></div>
+        <p class="what">Wikipedia for the facts, the local model for the slides, the article's photos, a key fact per slide and speaker notes.</p>
       </article>
       <article class="scene" data-time="22:59">
         <header><time>22:59</time><span class="k">One hour left</span></header>
@@ -946,6 +1123,7 @@ thead th { background: rgba(255, 255, 255, .04); }
       <details><summary>Does he understand my accent?</summary><p>He was built and tuned by a speaker of Indian English. &ldquo;Hey Jarvis&rdquo; is detected by sound rather than spelling, two recognisers cross-check each other, and <code>jarvis train-wake</code> teaches him how you say his name. For other languages, set <code>whisper_language = ""</code> in the settings and Whisper will detect what you speak.</p></details>
       <details><summary>Can he do something dangerous by mistake?</summary><p>Anything risky asks for a spoken yes first: shutting down, deleting, force-killing a program, running a shell command. Deleted files go to the Recycle Bin or Trash, not into the void. Closing an app is done the polite way, so the app itself asks about unsaved work.</p></details>
       <details><summary>My computer warned me about the installer. Is that normal?</summary><p>Yes. Jarvis is a free project without a paid code-signing certificate, so Windows and macOS treat the installer as an unknown app. The one-line install in PowerShell or Terminal avoids the warning. With the zip on Windows, choose <i>More info</i> and then <i>Run anyway</i> if a warning appears; on a Mac, right-click <i>Install Jarvis.command</i> and choose <i>Open</i>. Every line of the installer can be read on GitHub.</p></details>
+      <details><summary>Where do converted files, PDFs and presentations go?</summary><p>Next to the originals, unless you say where (&ldquo;&hellip;and save it in Downloads&rdquo;). Nothing is ever overwritten: a second copy gets &ldquo;(2)&rdquo; added to its name. Researched presentations are saved in <code>Documents\Jarvis\Presentations</code> and open as soon as they're ready. Turning Word, PowerPoint or Excel files into PDF needs Microsoft Office on Windows; images convert on both systems.</p></details>
       <details><summary>How do I remove it?</summary><p>Run <code>uninstall.bat</code> on Windows or <code>Uninstall Jarvis.command</code> on a Mac, both in the installer zip. It removes the program and asks whether to also delete your settings, models and face data.</p></details>
       <details><summary>Is this an official Marvel product?</summary><p>No. This is an independent, open-source fan project inspired by the assistant in the Iron Man films. It is not affiliated with or endorsed by Marvel or Disney. It is free, for personal use.</p></details>
     </div>
@@ -1042,7 +1220,7 @@ thead th { background: rgba(255, 255, 255, .04); }
         navLinks.forEach(function (a) { if (a.getAttribute("href") === "#" + e.target.id) a.setAttribute("aria-current", "true"); else a.removeAttribute("aria-current"); });
       });
     }, { rootMargin: "-45% 0px -50% 0px" });
-    ["how", "can", "day", "say", "security", "privacy", "install", "faq"].forEach(function (id) { if ($(id)) navIO.observe($(id)); });
+    ["how", "can", "files", "day", "say", "security", "privacy", "install", "faq"].forEach(function (id) { if ($(id)) navIO.observe($(id)); });
   }
 
   /* ------------------------------------------------------------------ one animation loop for every canvas, each runs only while on screen */
@@ -1529,6 +1707,7 @@ thead th { background: rgba(255, 255, 255, .04); }
   }
   var LINES = {
     how: "Allow me to show you how I work, sir.", can: "Fifty-two tools at your disposal, sir.", day: "A day in my life, sir.",
+    files: "Select them, sir, and say the word.",
     say: "Go on, try one. I'm listening.", security: "All monitors armed, sir.", privacy: "What you say stays in this room.",
     install: "Ready when you are, sir.", faq: "Questions are always welcome.", go: "All systems ready."
   };
@@ -1927,6 +2106,23 @@ thead th { background: rgba(255, 255, 255, .04); }
     fsteps.forEach(function (s) { stepIO.observe(s); });
   }
 
+  /* ------------------------------------------------------------------ files and presentations: the mock Explorer acts out the step in view */
+  var fxBox = $("fx"), xsteps = all(".xstep");
+  function setFx(i) {
+    if (i < 0 || fxBox.dataset.step === String(i)) return;
+    fxBox.dataset.step = String(i);                   /* CSS does the rest: selection, the result, both lines */
+    xsteps.forEach(function (s, k) { s.classList.toggle("on", k === i); });
+    if (mini.on && mini.section === "files") { mini.speakUntil = performance.now() + 1400; kick(); }
+  }
+  if (IO) {
+    $("fx-flow").classList.add("live");
+    xsteps[0].classList.add("on");
+    var fxIO = new IntersectionObserver(function (en) {
+      en.forEach(function (e) { if (e.isIntersecting) setFx(xsteps.indexOf(e.target)); });
+    }, { rootMargin: "-46% 0px -50% 0px" });
+    xsteps.forEach(function (s) { fxIO.observe(s); });
+  }
+
   /* ------------------------------------------------------------------ security radar */
   var radar = $("radar"), rc = radar.getContext("2d");
   var BLIPS = [["FACE", .45, .56], ["FILES", 1.5, .8], ["NET", 2.5, .42], ["PROC", 3.45, .72], ["USB", 4.35, .5], ["LOGIN", 5.35, .82]];
@@ -1960,7 +2156,7 @@ thead th { background: rgba(255, 255, 255, .04); }
 
   /* ------------------------------------------------------------------ a day with Jarvis */
   var day = $("day"), track = $("day-track"), scenes = all(".scene", track), dayBar = $("day-bar"), dayClock = $("day-clock");
-  var SKY = ["#7a4a14", "#1f4f7a", "#2a6492", "#24557e", "#7a3e1a", "#2b2468", "#151c42"], curScene = -1;
+  var SKY = ["#7a4a14", "#1f4f7a", "#2a6492", "#24557e", "#7a3e1a", "#4a2a5a", "#2b2468", "#151c42"], curScene = -1;
   function dayProgress(p) {
     p = Math.max(0, Math.min(1, p));
     dayBar.style.transform = "scaleX(" + p.toFixed(4) + ")";
@@ -2249,7 +2445,7 @@ thead th { background: rgba(255, 255, 255, .04); }
     G.set(soft, { opacity: 0, y: 22, filter: "blur(8px)" });
     ScrollTrigger.batch(soft, { start: "top 92%", once: true, onEnter: function (b) { G.to(b, { opacity: 1, y: 0, filter: "blur(0px)", duration: 1.2, ease: "power3.out", stagger: .08, delay: .15, clearProps: "filter" }); } });
     /* panels rise and settle, one after another */
-    var rv = all(".cap, .groups section, .all-head, .monitors > div, .radar-box, .rule, .split > div, .os, .install, .term, .tbl, .faq details, .say > *, .flow-vis, .go .actions");
+    var rv = all(".cap, .groups section, .all-head, .monitors > div, .radar-box, .rule, .split > div, .os, .install, .term, .tbl, .faq details, .say > *, .flow-vis, .fx-vis, .go .actions");
     G.set(rv, { opacity: 0, y: 56, scale: .97 });
     ScrollTrigger.batch(rv, {
       start: "top 92%", once: true,
