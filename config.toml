@@ -56,6 +56,13 @@ barge_in = true               # "Hey Jarvis" said while he is talking stops him 
 barge_in_threshold = 0.9
 endpoint_silence = 0.7        # seconds of quiet that end your sentence. Lower = snappier but may cut you off; 0 = off
 fast_reflex = true            # act on the fast recogniser's text when it is already a clear known command (saves ~0.4 s)
+# --- understanding you while you are still talking
+stream_transcribe = true      # Whisper transcribes each part of your sentence at your natural pauses while you speak,
+                              # so when you stop, the words are already understood (instead of starting only then)
+stream_pause = 0.25           # a pause this long (seconds) inside a sentence hands the words so far to Whisper
+quick_endpoint = 0.35         # once the words so far are already a complete known command ("open chrome"), this much
+                              # quiet is enough to act (instead of endpoint_silence). 0 = always wait endpoint_silence
+live_captions = true          # show your words under the orb as you say them
 wake_grammar_confidence = 0.85
 wake_fuzzy = 0.5              # how loosely a sound-alike word is passed to Whisper for a second opinion
 tts_engine = "piper"          # "piper" = neural British voice (offline), "sapi" = Windows built-in voice
@@ -80,6 +87,23 @@ opacity = 0.97                # panel style only
 network = true                # "Sir, we've lost the internet connection." / "We're back online, sir."
 power = true                  # a caption under the orb when the charger is connected / removed / battery is full
 quiet_hours = [23, 7]         # between these hours he never speaks unprompted (the remark is shown instead)
+
+# Deadlines, calendar and email. Link your accounts once with:  run_jarvis.bat connect-google
+# (Gmail through an app password, Google Calendar through each calendar's secret iCal address: both read-only,
+#  stored encrypted for your Windows account in data/google.bin). Then ask "what's due?", "what's on my calendar
+#  today?", "check my email", "I've submitted the DBMS lab" (stops the reminders for it).
+[agenda]
+enabled = true
+refresh_minutes = 15          # how often Gmail and the calendars are checked
+horizon_days = 14             # how far ahead deadlines and events are tracked
+deadline_alerts = [72, 24, 6, 1]   # hours before each deadline at which Jarvis reminds you
+event_lead_minutes = 10       # warning before a calendar event starts (0 = off)
+announce_new_deadlines = true # "Sir, a new deadline has come in: ..."
+announce_new_mail = true      # "Sir, a new email from ...": Primary inbox only (not Promotions / Social)
+speak_in_quiet_hours = false  # deadline alerts in quiet hours are a notification + caption; true = also spoken if < 6 h left
+max_emails_per_sync = 40
+# Which emails are read for due dates (Gmail search syntax). Promotions and Social are skipped.
+gmail_query = "newer_than:30d -category:promotions -category:social {assignment assignments deadline due submission submit quiz exam test project homework classroom viva lab report presentation}"
 
 # Coursera in Chrome: needs the "Jarvis Coursera Link" extension (load the extension/ folder in chrome://extensions).
 [coursera]

@@ -118,6 +118,10 @@ class Jarvis:
                                            whisper_verify=whisper is not None,
                                            soft=cfg["voice"].get("neural_wake_soft", 0.3))
                 self.listener = Listener(cfg["voice"], self.speaker, self.events, whisper)
+                # Followed word by word: a phrase led by his name is meant for him even before he is "awake", and a
+                # phrase that already reads as a complete known command can end after a short pause.
+                self.listener.for_me = self.matcher.led_by_variant
+                self.listener.is_command = lambda partial: self.quick_text(partial) is not None
                 self.listener.start()
                 STATE.boot("Microphone and wake word ... ONLINE"
                            + (" (neural 'Hey Jarvis' detector active)" if self.listener.neural else ""))
@@ -126,6 +130,13 @@ class Jarvis:
             notify("Jarvis reminder", msg)
             self.speaker.say("Sir, your timer is up." if msg.lower().strip() == "timer" else f"Sir, a reminder: {msg}")
         Ctx.reminders = Reminders(fire)
+
+        if cfg.get("agenda", {}).get("enabled", True):
+            from .agenda import Agenda
+            Ctx.agenda = Agenda(cfg, announce=self.announce)
+            Ctx.agenda.start()
+            STATE.boot("Calendar and Gmail watch ... " + ("ACTIVE" if Ctx.agenda.connected()
+                                                          else "not connected (run: jarvis connect-google)"))
 
         cr = cfg.get("coursera", {})
         if cr.get("enabled", True):
@@ -178,7 +189,45 @@ class Jarvis:
         pend = len(Ctx.reminders.pending()) if Ctx.reminders else 0
         if pend:
             parts.append(f"You have {pend} pending reminder{'s' if pend > 1 else ''}.")
+        if Ctx.agenda and Ctx.agenda.connected():
+            # The first sync starts with the boot; give it a few seconds so the greeting can mention deadlines.
+            end = time.time() + 6
+            while not Ctx.agenda.synced_at and time.time() < end:
+                time.sleep(0.2)
+            line = Ctx.agenda.briefing()
+            if line:
+                parts.append(line)
         return " ".join(parts)
+
+    def quiet_hours(self) -> bool:
+        start, end = (self.cfg.get("proactive", {}).get("quiet_hours") or [23, 7])[:2]
+        hour = dt.datetime.now().hour
+        return (start <= hour or hour < end) if start > end else (start <= hour < end)
+
+    def announce(self, msg: str, urgent: bool = False):
+        """Deadlines, calendar and email news (agenda.py). Always a Windows notification; spoken as soon as Jarvis
+        is free (not over a reply, a command being spoken or a conversation), except during quiet hours, when it is
+        only shown, unless [agenda] speak_in_quiet_hours = true and it is urgent."""
+        from .tools import notify
+        logging.getLogger("jarvis").info("agenda: %s", msg)
+        try:
+            notify("Jarvis", msg.removeprefix("Sir, "))
+        except Exception:
+            pass
+        STATE.add("SYS", msg)
+        if self.quiet_hours() and not (urgent and self.cfg.get("agenda", {}).get("speak_in_quiet_hours", False)):
+            return
+
+        def wait_then_say():
+            give_up = time.time() + 180
+            while time.time() < give_up and self.running:
+                busy = (self.speaker.busy or STATE.thinking or (self.listener and self.listener.hearing)
+                        or time.time() < self.deadline or STATE.booting)
+                if not busy:
+                    self.speaker.say(msg, log_it=False)
+                    return
+                time.sleep(0.5)
+        threading.Thread(target=wait_then_say, daemon=True, name="announce").start()
 
     def sentinel(self):
         """Proactive remarks, the way the film's Jarvis volunteers things: low power warnings."""
@@ -621,6 +670,15 @@ def self_check():
     from .tools import REGISTRY
     line("Tools", True, f"{len(REGISTRY)} registered")
     try:
+        from .agenda import load_secrets
+        g = load_secrets()
+        cals = ", ".join(c.get("name", "?") for c in g.get("calendars", []))
+        line("Gmail / Calendar (optional)", True,
+             (f"Gmail {g['email']}" if g.get("email") else "Gmail not linked") + "; " +
+             (f"calendars: {cals}" if cals else "no calendars") + ("" if g else " (link them: jarvis connect-google)"))
+    except Exception as e:
+        line("Gmail / Calendar", False, str(e))
+    try:
         import numpy as np
         from . import wakeword
         folder = resolve(v.get("wake_model_dir", "models/wakeword"))
@@ -633,6 +691,8 @@ def self_check():
     except Exception as e:
         line("Neural wake word", False, str(e))
     try:
+        if sys.platform != "win32":
+            raise ImportError("skip")              # the floating orb is Windows-only; other systems use the window
         from .orb import OrbRenderer
         r = OrbRenderer(360)
         for _ in range(5):
@@ -641,9 +701,22 @@ def self_check():
         for _ in range(20):
             r.render(1 / 30, "speaking", 0.6)
         line("Orb renderer", True, f"{(time.time() - t) / 20 * 1000:.0f} ms per frame")
+    except ImportError as e:
+        if str(e) != "skip":
+            line("Orb renderer", False, str(e))
     except Exception as e:
         line("Orb renderer", False, str(e))
+    if sys.platform == "darwin":
+        from . import macos
+        line("AppleScript (apps, volume, windows)", not macos.osa("return 1").startswith("error:"))
+        try:
+            import Quartz  # noqa: F401
+            import Vision  # noqa: F401
+            line("PyObjC (screen reading, media keys)", True)
+        except Exception as e:
+            line("PyObjC (screen reading, media keys)", False, str(e))
     print("All good." if ok else "Some checks failed (see above).")
+    return 0 if ok else 1
 
 
 def mic_test(seconds: int = 12):
@@ -760,6 +833,8 @@ COMMANDS = {
     "home": "show the folder with Jarvis's settings, models and logs",
     "intruders": "open the folder of photos Face guard took of strangers",
     "coursera": "restart Chrome with the Jarvis Coursera helper loaded",
+    "connect-google": "link Gmail + Google Calendar so Jarvis tracks deadlines (run it again to change or remove)",
+    "agenda": "print what Jarvis currently knows: deadlines, today's calendar, unread email",
     "orb-demo": "show the orb on its own",
     "uninstall-data": "delete Jarvis's settings, models and logs",
 }
@@ -811,6 +886,20 @@ def main():
         from .tools import Ctx
         Ctx.cfg = load_config()
         return print(router.intruder_folder())
+    if cmd == "connect-google":
+        from .agenda import connect_cli
+        return connect_cli()
+    if cmd == "agenda":
+        from .agenda import Agenda
+        a = Agenda(load_config())
+        if not a.connected():
+            print(a.deadlines_text())
+            return 1
+        a.sync()
+        print(a.deadlines_text(), a.day_text(0), a.day_text(1), a.mail_text(), sep="\n")
+        for name, err in a.errors.items():
+            print(f"  ({name} failed: {err})")
+        return 0
     if cmd == "uninstall-data":
         return installer.uninstall_data()
     if cmd == "enroll-face":
@@ -834,10 +923,20 @@ def main():
         return demo()
 
     # Only one Jarvis at a time (two would fight over the microphone and camera).
-    mutex = ctypes.windll.kernel32.CreateMutexW(None, False, "Local\\JarvisAssistantSingleton")
-    if ctypes.windll.kernel32.GetLastError() == 183:
-        print("Jarvis is already running.")
-        return
+    if sys.platform == "win32":
+        mutex = ctypes.windll.kernel32.CreateMutexW(None, False, "Local\\JarvisAssistantSingleton")
+        if ctypes.windll.kernel32.GetLastError() == 183:
+            print("Jarvis is already running.")
+            return
+    else:
+        import fcntl
+        (ROOT / "data").mkdir(parents=True, exist_ok=True)
+        mutex = open(ROOT / "data" / "jarvis.lock", "w")
+        try:
+            fcntl.flock(mutex, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            print("Jarvis is already running.")
+            return
 
     setup_logging()
     jarvis = Jarvis(args)
@@ -850,6 +949,8 @@ def main():
         return
     # The face of Jarvis: a floating 3D orb on the desktop (default), or the old arc-reactor window.
     style = "panel" if args.panel else str(jarvis.cfg.get("ui", {}).get("style", "orb")).lower()
+    if sys.platform != "win32":
+        style = "panel"          # the floating orb is drawn with Win32 layered windows; elsewhere, the window
     hooks = dict(on_text=lambda t: jarvis.events.put(("text", t)), on_talk=lambda: jarvis.events.put(("ptt", None)),
                  on_quit=lambda: jarvis.events.put(("quit", None)), security=jarvis.security)
     if style == "orb":

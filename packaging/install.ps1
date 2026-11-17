@@ -1,13 +1,19 @@
 # ============================================================================
 #  J.A.R.V.I.S. installer for Windows 10/11
 #  Run:  install.bat   (or:  powershell -ExecutionPolicy Bypass -File install.ps1)
+#  Or, without downloading anything first, paste this in PowerShell:
+#        irm https://ryu10867.github.io/jarvis/install.ps1 | iex
 #
 #  Program  ->  %LOCALAPPDATA%\Programs\Jarvis   (its own Python environment)
 #  Settings, models, logs  ->  %LOCALAPPDATA%\Jarvis
 #  Adds the `jarvis` command to your PATH and a "Jarvis" shortcut on the Desktop.
 # ============================================================================
 $ErrorActionPreference = 'Stop'
-$here = Split-Path -Parent $MyInvocation.MyCommand.Path
+$repo = 'Ryu10867/jarvis'
+# Run from the installer folder, the wheel is next to this file. Run straight from the web ("irm ... | iex"),
+# there is no file: the installer zip is fetched from the latest release instead.
+$here = $null
+try { if ($MyInvocation.MyCommand.Path) { $here = Split-Path -Parent $MyInvocation.MyCommand.Path } } catch {}
 $app  = Join-Path $env:LOCALAPPDATA 'Programs\Jarvis'
 $venv = Join-Path $app 'venv'
 $bin  = Join-Path $app 'bin'
@@ -17,8 +23,22 @@ function Say($msg, $color = 'Cyan') { Write-Host $msg -ForegroundColor $color }
 Say "`n  J.A.R.V.I.S. installer`n"
 
 # --- 1. the package itself
-$wheel = Get-ChildItem $here -Filter 'jarvis_assistant-*.whl' | Sort-Object Name | Select-Object -Last 1
-if (-not $wheel) { throw "jarvis_assistant-*.whl was not found next to install.ps1." }
+$wheel = $null
+if ($here) { $wheel = Get-ChildItem $here -Filter 'jarvis_assistant-*.whl' -ErrorAction SilentlyContinue | Sort-Object Name | Select-Object -Last 1 }
+if (-not $wheel) {
+    Say "Downloading Jarvis..."
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+    $tmp = Join-Path $env:TEMP ("jarvis-install-" + [guid]::NewGuid().ToString('N').Substring(0, 8))
+    New-Item -ItemType Directory -Force $tmp | Out-Null
+    $zip = Join-Path $tmp 'jarvis.zip'
+    $old = $ProgressPreference; $ProgressPreference = 'SilentlyContinue'      # the progress bar makes downloads crawl
+    try { Invoke-WebRequest "https://github.com/$repo/releases/latest/download/Jarvis-Installer-Windows.zip" -OutFile $zip -UseBasicParsing }
+    catch { throw "Could not download the installer ($_). Check your internet connection and try again." }
+    finally { $ProgressPreference = $old }
+    Expand-Archive -Path $zip -DestinationPath $tmp -Force
+    $wheel = Get-ChildItem $tmp -Filter 'jarvis_assistant-*.whl' | Sort-Object Name | Select-Object -Last 1
+    if (-not $wheel) { throw "The download did not contain the Jarvis package." }
+}
 
 # --- 2. Python 3.11+
 function Find-Python {
@@ -84,5 +104,7 @@ try {
 } catch { Say "(Could not create the Desktop shortcut: $_)" Yellow }
 
 Say "`nJarvis is installed. Starting first-time setup...`n" Green
-& $vpy -m jarvis setup
+$setupArgs = @()
+if ($env:JARVIS_SETUP_ARGS) { $setupArgs = $env:JARVIS_SETUP_ARGS -split '\s+' }     # e.g. "--yes": accept every default
+& $vpy -m jarvis setup @setupArgs
 Say "`nAll done. Double-click 'Jarvis' on the Desktop, or type  jarvis  in a new terminal." Green

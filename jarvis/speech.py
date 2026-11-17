@@ -156,7 +156,11 @@ class Speaker:
                 log.info("Piper voice loaded: %s", self.cfg["piper_voice"])
                 return ("piper", voice, syn)
             except Exception as e:
-                log.error("Piper unavailable (%s); falling back to Windows SAPI voice", e)
+                log.error("Piper unavailable (%s); falling back to the system voice", e)
+        import sys
+        if sys.platform != "win32":
+            self.engine_name = "say"                   # macOS's built-in speech command
+            return ("say", None, None)
         import comtypes
         import comtypes.client
         comtypes.CoInitialize()
@@ -206,11 +210,34 @@ class Speaker:
                         if gen != self._gen:
                             break
                         self.audio_q.put((gen, synth(sentence), voice.config.sample_rate, sentence))
+                elif kind == "say":
+                    self._speak_say(text, gen)
                 else:
                     self._speak_sapi(voice, text, gen)
             except Exception as e:
                 log.error("TTS failed: %s", e)
             self.audio_q.put((gen, None, 0, None))     # end-of-text marker
+
+    def _speak_say(self, text, gen):
+        """Fallback voice on a Mac: the `say` command (British 'Daniel' when it is installed)."""
+        import subprocess
+        STATE.caption("JARVIS", text)
+        try:
+            voices = subprocess.run(["say", "-v", "?"], capture_output=True, text=True, timeout=10).stdout
+            cmd = ["say"] + (["-v", "Daniel"] if "Daniel" in voices else []) + [text]
+            proc = subprocess.Popen(cmd)
+        except Exception as e:
+            log.error("the say command failed: %s", e)
+            return
+        t = 0.0
+        while proc.poll() is None:
+            time.sleep(0.05)
+            t += 0.05
+            STATE.voice_level = 0.35 + 0.25 * abs(np.sin(t * 9))
+            if gen != self._gen:
+                proc.terminate()
+                break
+        STATE.voice_level = 0.0
 
     def _speak_sapi(self, voice, text, gen):
         STATE.caption("JARVIS", text)
@@ -273,7 +300,9 @@ class Utterance:
         self.text, self.audio, self.grammar_hit = text, audio, grammar_hit
         self.duration = len(audio) / 2 / sample_rate
         self.whisper_text: str | None = None
-        self.neural = neural              # best "Hey Jarvis" score (0..1) from the neural detector during this phrase
+        self.stream: StreamTranscript | None = None     # Whisper's pieces, transcribed while the phrase was spoken
+        self.speech_end = len(audio)                     # byte offset where the last loud sound ended
+        self.neural = neural             # best "Hey Jarvis" score (0..1) from the neural detector during this phrase
         self.neural_at = neural_at        # seconds into the phrase at which it first fired (None = it didn't)
 
 
@@ -308,9 +337,10 @@ class WhisperSTT:
         except Exception as e:
             log.warning("Whisper warm-up failed: %s", e)
 
-    def transcribe(self, audio: bytes, sample_rate: int = 16000, hint: str = "") -> str:
+    def transcribe(self, audio: bytes, sample_rate: int = 16000, hint: str = "", piece: bool = False) -> str:
         """`hint` is Vosk's rough transcript of the same audio. Whisper invents phrases like "Thank you." from
-        noise; such a phrase is only believed when Vosk heard the same words."""
+        noise; such a phrase is only believed when Vosk heard the same words. `piece`: the audio is one part of a
+        longer sentence (streaming) and `hint` is the whole sentence so far, so the words only have to appear in it."""
         samples = np.frombuffer(audio, dtype=np.int16).astype(np.float32) / 32768.0
         if len(samples) < sample_rate * 0.3:
             return ""
@@ -326,8 +356,97 @@ class WhisperSTT:
             return ""
         if text.lower().strip() in WHISPER_HALLUCINATIONS:
             said = re.sub(r"[^a-z ]", "", text.lower()).strip()
-            return text if said and said == re.sub(r"[^a-z ]", "", hint.lower()).strip() else ""
+            heard = re.sub(r"[^a-z ]", "", hint.lower()).strip()
+            if piece:
+                return text if said and re.search(rf"\b{re.escape(said)}\b", heard) else ""
+            return text if said and said == heard else ""
         return text
+
+
+# Words that continue a sentence across a pause: "Open Chrome." + "And go to YouTube." -> "Open Chrome and go to YouTube."
+_CONTINUES = {"and", "or", "but", "then", "to", "the", "a", "an", "of", "for", "with", "in", "on", "at", "because",
+              "so", "that", "which", "is", "it", "my", "me", "from", "about", "by", "also", "please", "after", "before"}
+
+
+def join_pieces(texts: list[str]) -> str:
+    out = ""
+    for t in texts:
+        t = (t or "").strip()
+        if not t:
+            continue
+        if not out:
+            out = t
+            continue
+        out = out[:-3] if out.endswith("...") else out
+        first = re.match(r"[A-Za-z']+", t)
+        if out.endswith((".", ",")) and first and first.group(0).lower() in _CONTINUES:
+            out = out[:-1]
+            t = t[0].lower() + t[1:]
+        out += " " + t
+    return out
+
+
+class StreamTranscript:
+    """Whisper reading a sentence piece by piece *while it is still being spoken*.
+
+    Vosk already follows the words one by one as they are said (that is what the live caption shows), but it is
+    rough; Whisper is accurate but needs audio to read. So at every natural pause inside the sentence (a breath, a
+    comma: `stream_pause`, 0.25 s) the words since the previous pause go to a background worker. The pause that ends
+    the sentence starts the same way, so the last piece is transcribed during the end-of-speech wait, and the whole
+    text is ready the moment the sentence is over, instead of Whisper only starting then (0.4 s+, more for long
+    sentences, whose earlier parts were finished long ago)."""
+    _pool = None
+    _pool_lock = threading.Lock()
+
+    def __init__(self, whisper: "WhisperSTT", sample_rate: int = 16000):
+        self.whisper, self.sr = whisper, sample_rate
+        self.jobs: list = []        # Futures, in the order the pieces were spoken
+        self.covered = 0            # bytes of the phrase handed to Whisper so far
+        self.spent = 0.0            # seconds Whisper spent on the pieces
+
+    @classmethod
+    def _worker(cls):
+        with cls._pool_lock:
+            if cls._pool is None:
+                from concurrent.futures import ThreadPoolExecutor
+                cls._pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="whisper-stream")
+            return cls._pool
+
+    def submit(self, audio: bytes, upto: int, hint: str):
+        piece = audio[self.covered:upto]
+        self.covered = upto
+        self.jobs.append(self._worker().submit(self._run, piece, hint))
+
+    def _run(self, piece: bytes, hint: str) -> str | None:
+        t0 = time.time()
+        try:
+            text = self.whisper.transcribe(piece, self.sr, hint=hint, piece=True)
+        except Exception as e:
+            log.error("Whisper failed on a streamed piece: %s", e)
+            return None
+        self.spent += time.time() - t0
+        log.debug("whisper piece (%.2fs audio, %.2fs): %r", len(piece) / 2 / self.sr, time.time() - t0, text)
+        return text
+
+    def finish(self, audio: bytes, speech_end: int, hint: str, timeout: float = 8.0) -> str | None:
+        """The whole phrase's text, or None if streaming could not produce it (the caller then transcribes the
+        phrase in one go). `speech_end`: byte offset where the last loud sound ended."""
+        texts = []
+        for job in self.jobs:
+            try:
+                text = job.result(timeout=timeout)
+            except Exception:
+                return None
+            if text is None:
+                return None
+            texts.append(text)
+        if speech_end > self.covered + int(0.12 * self.sr) * 2:          # words after the last piece handed over
+            try:
+                texts.append(self.whisper.transcribe(audio[self.covered:], self.sr, hint=hint, piece=bool(texts)))
+            except Exception as e:
+                log.error("Whisper failed on the last piece: %s", e)
+                return None
+        return join_pieces(texts)
 
 
 class Listener:
@@ -368,6 +487,13 @@ class Listener:
             else:
                 log.info("Neural wake-word models not found in %s (run setup_models.py)", folder)
         self.endpoint_silence = float(cfg_voice.get("endpoint_silence", 0.7))
+        # Understanding while the user is still talking (see StreamTranscript).
+        self.stream_stt = bool(cfg_voice.get("stream_transcribe", True)) and whisper is not None
+        self.stream_gap = float(cfg_voice.get("stream_pause", 0.25))
+        self.quick_endpoint = float(cfg_voice.get("quick_endpoint", 0.35))
+        self.live_captions = bool(cfg_voice.get("live_captions", True))
+        self.for_me = None        # callable(partial) -> bool: is this phrase addressed to Jarvis? (set by the assistant)
+        self.is_command = None    # callable(partial) -> bool: are the words so far already a complete known command?
 
     @staticmethod
     def find_device(name: str):
@@ -425,6 +551,12 @@ class Listener:
             barge = 0                                     # consecutive high scores while Jarvis is speaking
             floor, quiet_since, last_partial, stable_since = 0.004, None, "", 0
             neural = self.neural
+            # This phrase, followed word by word: is it meant for Jarvis, Whisper's pieces so far, where the last
+            # loud sound ended (bytes into the phrase), the caption on show, the last "complete command?" verdict.
+            stream, wanted, loud_rel, shown, judged = None, False, 0, "", ("", False)
+            gap_bytes = int(self.stream_gap * sr) * 2
+            piece_bytes = int(1.0 * sr) * 2              # don't cut pieces shorter than a second at a mere breath
+            quick_bytes = int(self.quick_endpoint * sr) * 2
 
             def emit(text, hit):
                 """Hand a finished phrase to the assistant, with whatever the neural detector made of it."""
@@ -435,9 +567,12 @@ class Listener:
                     at = (hit_pos - utt_start) / 2 / sr
                 self.hearing = False                      # the phrase is over (the assistant checks this at once)
                 if (text and text not in ("the", "huh", "a")) or hit or at is not None:
-                    log.info("heard: %r%s%s", text, " [wake-grammar]" if hit else "",
-                             f" [neural {best:.2f}]" if best >= 0.2 else "")
-                    self.events.put(("utt", Utterance(text, bytes(buf[start:]), hit, sr, best, at)))
+                    log.info("heard: %r%s%s%s", text, " [wake-grammar]" if hit else "",
+                             f" [neural {best:.2f}]" if best >= 0.2 else "",
+                             f" [streamed {len(stream.jobs)} piece(s)]" if stream else "")
+                    utt = Utterance(text, bytes(buf[start:]), hit, sr, best, at)
+                    utt.stream, utt.speech_end = stream, min(loud_rel + int(0.1 * sr) * 2, len(utt.audio))
+                    self.events.put(("utt", utt))
 
             while True:
                 data = audio_q.get()
@@ -465,6 +600,7 @@ class Listener:
                         gram.Reset()
                         buf, in_speech, hit = bytearray(), False, False
                         hit_pos, quiet_since, last_partial = None, None, ""
+                        stream, wanted, loud_rel, shown = None, False, 0, ""
                     # Barge-in: "Hey Jarvis" said over his own voice stops him mid-sentence. No echo cancellation
                     # here, so it needs a very confident score twice in a row, and it is skipped while he is saying
                     # his own name (he would interrupt himself).
@@ -495,6 +631,7 @@ class Listener:
                     emit(text, hit)
                     buf, start, in_speech, hit = bytearray(), 0, False, False
                     quiet_since, last_partial = None, ""
+                    stream, wanted, loud_rel, shown = None, False, 0, ""
                     continue
                 self.hearing = in_speech
                 partial = json.loads(full.PartialResult()).get("partial", "")
@@ -504,6 +641,7 @@ class Listener:
                         in_speech = self.hearing = True
                         start = max(0, len(buf) - len(data) - pre_roll)
                         last_partial, stable_since, quiet_since = partial, pos, None
+                        stream, wanted, loud_rel, shown = None, False, len(buf) - start, ""
                     elif len(buf) > pre_roll * 3:
                         del buf[:len(buf) - pre_roll]   # rolling pre-roll window while it's quiet
                 elif len(buf) - start > max_bytes:
@@ -514,19 +652,58 @@ class Listener:
                         emit(text, hit)
                     buf, start, in_speech, hit = bytearray(), 0, False, False
                     quiet_since, last_partial = None, ""
+                    stream, wanted, loud_rel, shown = None, False, 0, ""
                 else:
                     # Faster end-of-speech. Vosk waits 0.5 s of silence when it is sure the sentence is complete
                     # but 1-2 s when it isn't (accents, trailing "uh"). If the words have stopped changing AND the
                     # room has been quiet for `endpoint_silence`, the phrase is over: finish it now.
-                    if partial != last_partial:
+                    rel = len(buf) - start                                     # bytes into the phrase
+                    changed = partial != last_partial
+                    if changed:
                         last_partial, stable_since = partial, pos
                     if lvl > max(floor * 2.5, 0.006):
                         quiet_since = None
+                        loud_rel = rel
                     elif quiet_since is None:
                         quiet_since = pos
+
+                    # --- following the sentence while it is spoken
+                    if changed and partial and not wanted:
+                        # Only phrases meant for Jarvis are followed closely (not the TV or a phone call nearby):
+                        # he is listening (after the wake word / mid-conversation), or the phrase starts with his name.
+                        utt_start = pos - rel
+                        try:
+                            wanted = (STATE.attentive or (hit_pos is not None and hit_pos >= utt_start)
+                                      or bool(self.for_me and self.for_me(partial)))
+                        except Exception:
+                            wanted = STATE.attentive
+                        if wanted and self.stream_stt:
+                            stream = StreamTranscript(self.whisper, sr)
+                    if wanted and self.live_captions and partial and partial != shown:
+                        shown = partial
+                        STATE.caption("YOU", partial + " ...")                 # the words, as they are said
+                    if stream and quiet_since is not None and loud_rel > stream.covered:
+                        # A pause: hand the words since the previous pause to Whisper now, not after the sentence.
+                        quiet = pos - quiet_since
+                        if (quiet >= gap_bytes and rel - stream.covered >= piece_bytes) or quiet >= 2 * gap_bytes:
+                            stream.submit(bytes(buf[start:]), rel, partial)
+
                     need = int(self.endpoint_silence * sr * 2)
-                    if (self.endpoint_silence > 0 and quiet_since is not None and pos - quiet_since >= need
-                            and pos - stable_since >= need):
+                    done = (self.endpoint_silence > 0 and quiet_since is not None and pos - quiet_since >= need
+                            and pos - stable_since >= need)
+                    if (not done and wanted and self.is_command and quick_bytes and partial and quiet_since is not None
+                            and pos - quiet_since >= quick_bytes and pos - stable_since >= quick_bytes):
+                        # The words so far already make a complete, known command ("open chrome", "volume up"):
+                        # a short pause is enough, there is no need to wait the full endpoint_silence.
+                        if judged[0] != partial:
+                            try:
+                                judged = (partial, bool(self.is_command(partial)))
+                            except Exception:
+                                judged = (partial, False)
+                        done = judged[1]
+                        if done:
+                            log.info("quick endpoint: %r is already a complete command", partial)
+                    if done:
                         text = json.loads(full.FinalResult()).get("text", "").strip()
                         hit = hit or self._grammar_hit(gram.FinalResult())
                         full.Reset()
@@ -534,6 +711,7 @@ class Listener:
                         emit(text, hit)
                         buf, start, in_speech, hit = bytearray(), 0, False, False
                         quiet_since, last_partial = None, ""
+                        stream, wanted, loud_rel, shown = None, False, 0, ""
 
     def tail_text(self, utt: Utterance, start_sec: float) -> str:
         """Whisper's transcript of the phrase from `start_sec` onwards (what was said after the wake word)."""
@@ -556,6 +734,14 @@ class Listener:
             utt.whisper_text = utt.text
             return utt.text
         t0 = time.time()
+        if utt.stream is not None:
+            # Most of the sentence was transcribed while it was being spoken: only wait for what is left.
+            text = utt.stream.finish(utt.audio, utt.speech_end, utt.text)
+            if text is not None:
+                utt.whisper_text = text
+                log.info("whisper (streamed: %d piece(s), %.2fs of it done in the background, +%.2fs wait): %r",
+                         len(utt.stream.jobs), utt.stream.spent, time.time() - t0, text)
+                return text
         try:
             utt.whisper_text = self.whisper.transcribe(utt.audio, self.sample_rate, hint=utt.text)
         except Exception as e:

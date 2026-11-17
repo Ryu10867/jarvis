@@ -9,6 +9,15 @@ def signer(exe: str) -> str | None:
     """Return the signer's organisation if the file has a VALID signature, else None."""
     if not exe:
         return None
+    import sys
+    if sys.platform == "darwin":
+        try:
+            from ..macos import signer as mac_signer
+            return mac_signer(exe)
+        except Exception:
+            return None
+    if sys.platform != "win32":
+        return None
     try:
         out = subprocess.run(
             ["powershell", "-NoProfile", "-Command",

@@ -1,8 +1,8 @@
 """Global push-to-talk hotkey (default Ctrl+Alt+J): works from any application, no wake word needed."""
 import ctypes
 import logging
+import sys
 import threading
-from ctypes import wintypes
 
 log = logging.getLogger("jarvis.hotkey")
 MODS = {"alt": 0x1, "ctrl": 0x2, "control": 0x2, "shift": 0x4, "win": 0x8}
@@ -14,6 +14,11 @@ def start_hotkey(combo: str, callback) -> bool:
     parts = [p.strip().lower() for p in combo.split("+") if p.strip()]
     if not parts:
         return False
+    if sys.platform != "win32":
+        # A system-wide hotkey on macOS needs the Input Monitoring permission and a native event tap; not built yet.
+        log.info("Global hotkey %s is Windows-only for now: use the wake word, or the Talk button in the window", combo)
+        return False
+    from ctypes import wintypes
     mods = 0x4000                                   # MOD_NOREPEAT
     for p in parts[:-1]:
         mods |= MODS.get(p, 0)

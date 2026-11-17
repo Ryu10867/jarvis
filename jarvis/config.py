@@ -1,22 +1,30 @@
 import os
 import shutil
+import sys
 import tomllib
 from pathlib import Path
 
 PACKAGE = Path(__file__).resolve().parent
 _SOURCE = PACKAGE.parent
+WINDOWS = sys.platform == "win32"
+MAC = sys.platform == "darwin"
+NO_WINDOW = 0x08000000 if WINDOWS else 0      # subprocess creationflags: no console window flashing up (Windows)
 
 
 def _home() -> Path:
     """Where config.toml, data/ and models/ live.
     * JARVIS_HOME set           -> that folder
     * running from a source checkout (config.toml next to the jarvis/ package) -> the checkout itself
-    * installed with pip        -> %LOCALAPPDATA%\\Jarvis"""
+    * installed with pip        -> %LOCALAPPDATA%\\Jarvis  (macOS: ~/Library/Application Support/Jarvis)"""
     env = os.environ.get("JARVIS_HOME")
     if env:
         return Path(env).expanduser().resolve()
     if (_SOURCE / "config.toml").exists():
         return _SOURCE
+    if MAC:
+        return Path.home() / "Library" / "Application Support" / "Jarvis"
+    if not WINDOWS:
+        return Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share") / "Jarvis"
     return Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local") / "Jarvis"
 
 
@@ -48,8 +56,13 @@ def find_ollama() -> str | None:
     found = shutil.which("ollama")
     if found:
         return found
-    for p in (Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Ollama" / "ollama.exe",
-              Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Ollama" / "ollama.exe"):
+    places = (Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Ollama" / "ollama.exe",
+              Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Ollama" / "ollama.exe")
+    if not WINDOWS:
+        places = (Path("/opt/homebrew/bin/ollama"), Path("/usr/local/bin/ollama"),
+                  Path("/Applications/Ollama.app/Contents/Resources/ollama"),
+                  Path.home() / "Applications/Ollama.app/Contents/Resources/ollama")
+    for p in places:
         if p.exists():
             return str(p)
     return None
@@ -69,10 +82,12 @@ _KNOWN = {"desktop": 0x0000, "documents": 0x0005, "pictures": 0x0027, "music": 0
 
 def known_folder(name: str) -> Path | None:
     """Real location of Desktop/Documents/... (handles OneDrive redirection)."""
-    import ctypes
     csidl = _KNOWN.get(name.lower())
     if csidl is None:
         return None
+    if not WINDOWS:
+        return Path.home() / {"videos": "Movies"}.get(name.lower(), name.capitalize())
+    import ctypes
     buf = ctypes.create_unicode_buffer(260)
     ctypes.windll.shell32.SHGetFolderPathW(None, csidl, None, 0, buf)
     return Path(buf.value) if buf.value else None

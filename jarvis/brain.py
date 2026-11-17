@@ -132,6 +132,10 @@ FORCED_TOOLS = [
     (re.compile(r"\bwhat (reminders|timers|alarms)|\b(do i have|are there|list|show)( me)?( any| my| the)?"
                 r"( pending| upcoming)? (reminders|timers|alarms)", re.I), "list_reminders", {}),
     (re.compile(r"\b(read|what are|what's in|show)( me)?( my| the)? notes\b", re.I), "read_notes", {}),
+    # Deadlines, schedule and email: the model must only summarise what Gmail / Google Calendar actually say.
+    (re.compile(r"\b(deadlines?|assignments?|submissions?|homework|(is|are|it's|anything|what's) due|due (today|tomorrow|"
+                r"soon|this week|next week|date)|my (calendar|schedule|agenda|timetable|e-?mails?|inbox|gmail)|"
+                r"unread (e-?mails?|mails?)|(free|busy) (today|tomorrow))\b", re.I), "agenda", {"action": "overview"}),
 ]
 
 CONFIRM_PHRASES = {
@@ -204,7 +208,7 @@ class Brain:
         self.owner = a["owner_name"]
         self.system = SYSTEM_PROMPT.format(owner=self.owner)
         self.history: list[dict] = []
-        self.tools = [t.schema() for t in REGISTRY.values()]
+        self.tools = [t.schema() for t in REGISTRY.values() if not t.hidden]
         self.max_tokens = int(llm.get("max_tokens", 260))      # replies are 1-3 spoken sentences; stops rambling
         self.learn = llm.get("learn_shortcuts", True)
         self.last_command = self.last_reply = ""
@@ -251,7 +255,8 @@ class Brain:
         tool choice (Ollama structured output), so it has to name a tool rather than claim it did something.
         Same message prefix as the normal call, so the prompt cache still applies."""
         schema = {"type": "object",
-                  "properties": {"tool": {"type": "string", "enum": list(REGISTRY) + ["none"]},
+                  "properties": {"tool": {"type": "string",
+                                          "enum": [n for n, t in REGISTRY.items() if not t.hidden] + ["none"]},
                                  "arguments": {"type": "object"}},
                   "required": ["tool", "arguments"]}
         ask = messages + [
@@ -337,9 +342,9 @@ class Brain:
             env = dict(os.environ)
             for key, value in (self.cfg["llm"].get("server_env") or {}).items():
                 env.setdefault(str(key), str(value))        # e.g. flash attention + a smaller memory cache
-            from .config import find_ollama
-            subprocess.Popen([find_ollama() or "ollama", "serve"],stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env,
-                             creationflags=subprocess.CREATE_NO_WINDOW)
+            from .config import NO_WINDOW, find_ollama
+            subprocess.Popen([find_ollama() or "ollama", "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                             env=env, creationflags=NO_WINDOW)
         except Exception as e:
             log.error("could not start Ollama: %s", e)
             return False

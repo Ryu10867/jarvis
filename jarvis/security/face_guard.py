@@ -8,10 +8,19 @@ Fixes over the first build:
 """
 import ctypes
 import logging
+import sys
 import threading
 import time
 
 import cv2
+
+
+def lock_workstation():
+    if sys.platform == "win32":
+        ctypes.windll.user32.LockWorkStation()
+    elif sys.platform == "darwin":
+        from ..macos import lock
+        lock()
 
 from ..config import resolve
 from .face_engine import FaceEngine
@@ -20,7 +29,12 @@ log = logging.getLogger("jarvis.face")
 
 
 def screen_locked() -> bool:
-    """True while the Windows lock screen / secure desktop is showing."""
+    """True while the Windows lock screen / secure desktop (or the Mac lock screen) is showing."""
+    if sys.platform != "win32":
+        if sys.platform == "darwin":
+            from ..macos import screen_locked as mac_locked
+            return mac_locked()
+        return False
     u = ctypes.windll.user32
     h = u.OpenInputDesktop(0, False, 0x0100)        # DESKTOP_SWITCHDESKTOP
     if not h:
@@ -55,7 +69,8 @@ class FaceGuard:
     # ---- camera helpers
     def _open(self):
         if self.cam is None or not self.cam.isOpened():
-            self.cam = cv2.VideoCapture(self.cfg["camera_index"], cv2.CAP_DSHOW)
+            self.cam = (cv2.VideoCapture(self.cfg["camera_index"], cv2.CAP_DSHOW) if sys.platform == "win32"
+                        else cv2.VideoCapture(self.cfg["camera_index"]))
         return self.cam.isOpened()
 
     def release(self):
@@ -199,4 +214,4 @@ class FaceGuard:
                                         {"photo": str(path) if path else None, "folder": str(self.intruder_dir),
                                          "score": max(scores)})
                 if locking:
-                    ctypes.windll.user32.LockWorkStation()
+                    lock_workstation()

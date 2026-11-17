@@ -118,7 +118,7 @@ def intruder_folder() -> str:
     photos = sorted(folder.glob("*.jpg")) if folder.is_dir() else []
     if not photos:
         return "There are no intruder photos, sir. Nobody unfamiliar has been caught at the laptop."
-    os.startfile(folder)
+    tools.open_file(folder)
     return f"Here they are, sir: {len(photos)} photo{'s' if len(photos) != 1 else ''} in {folder.name}."
 
 
@@ -242,6 +242,40 @@ _CR_INTENT = re.compile(r"\bcoursera\b|\blecture\b|\blesson\b", re.I)
 _CR_VIDEO = re.compile(r"(?:play|start|resume|continue|watch|finish|complete|do)\s+"
                        r"(?:the\s+|this\s+|my\s+|all\s+(?:of\s+)?(?:the\s+)?)?(?:video|lecture|lesson)s?\b"
                        r"|\bcontinue watching\b|\bnext video\b|\bplay all\b|\bwatch all\b", re.I)
+
+
+_AG_ASK = re.compile(r"^(?:so |and |also )?(what|what's|whats|any|anything|is there|are there|do i have|have i got|did i get|"
+                     r"got any|show|list|tell|check|read|how many|which|when|give me|go through)\b")
+_AG_DUE = re.compile(r"\b(deadlines?|assignments?|submissions?|homework|due|pending|coursework)\b")
+_AG_CAL = re.compile(r"\b(calendar|schedule|agenda|timetable)\b")
+_AG_DAY_THINGS = re.compile(r"\b(meetings?|events?|classes|lectures?|appointments?|plans?)\b.*\b(today|tomorrow)\b")
+_AG_MAIL = re.compile(r"\b(e-?mails?|mails?|gmail|inbox)\b")
+
+
+def _agenda(t: str, run, free: bool) -> str | None:
+    """Deadlines, calendar and email questions (agenda.py), answered from the real data, never from the model."""
+    if re.search(r"\b(reminders?|timers?|alarms?|notes?|mean|meaning|define|definition|security|alerts?)\b", t):
+        return None
+    if re.fullmatch(r"(?:sync|refresh|update|reload|recheck)(?: my| the)? (?:calendars?|e-?mails?|gmail|deadlines|agenda|"
+                    r"inbox|assignments)", t):
+        return run("agenda", {"action": "refresh"})
+    asking = bool(_AG_ASK.match(t))
+    if asking and _AG_MAIL.search(t) and not re.match(r"(open|send|write|compose|reply)\b", t):
+        return run("agenda", {"action": "emails"})
+    if (asking and (_AG_CAL.search(t) or _AG_DAY_THINGS.search(t))) or re.fullmatch(
+            r"(?:what do i have|what have i got|am i (?:free|busy)|what(?:'s| is) (?:on|happening|planned))"
+            r"(?: on| going on)? (?:for )?(today|tomorrow)", t):
+        if _AG_DUE.search(t) and not _AG_CAL.search(t):
+            return run("agenda", {"action": "deadlines"})
+        return run("agenda", {"action": "tomorrow" if "tomorrow" in t else "today"})
+    if asking and _AG_DUE.search(t):
+        return run("agenda", {"action": "deadlines"})
+    m = re.fullmatch(r"(?:mark|set) (?:the |my )?(.+?) (?:as )?(?:done|complete|completed|submitted|finished)|"
+                     r"i(?:'ve| have)? (?:already |just )?(?:submitted|finished|completed|turned in|done with) "
+                     r"(?:the |my )?(.+)", t) if free else None
+    if m and Ctx.agenda and Ctx.agenda.find(m.group(1) or m.group(2)):
+        return run("agenda", {"action": "done", "value": m.group(1) or m.group(2)})
+    return None
 
 
 def _speed(s: str) -> float | None:
@@ -479,6 +513,9 @@ def route(text: str, strict: bool = False, _probe: bool = False) -> str | None:
         about = m.group(3) or ("all" if m.group(1) or m.group(2) == "reminder" else m.group(2))
         r = run("cancel_reminder", {"about": about})
         return "Cancelled, sir." if r.startswith("Cancelled") else "I couldn't find a matching reminder, sir."
+    reply = _agenda(t, run, free)
+    if reply:
+        return reply
     m = re.fullmatch(r"copy (.+?) (?:to|into|onto) (?:the |my )?clipboard", clean(text), re.I) if free else None
     if m:
         run("clipboard", {"action": "write", "text": m.group(1).strip(" \"'")})

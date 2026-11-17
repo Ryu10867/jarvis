@@ -14,8 +14,12 @@ import time
 import urllib.parse
 import urllib.request
 import webbrowser
-from ctypes import wintypes
 from dataclasses import dataclass
+
+try:
+    from ctypes import wintypes
+except Exception:                       # not Windows: the Mac versions of these tools live in macos.py
+    wintypes = None
 from pathlib import Path
 from typing import Callable
 
@@ -37,6 +41,7 @@ class Tool:
     params: dict           # {param: (type, description, required)}
     func: Callable
     risky: bool = False
+    hidden: bool = False   # runnable by reflexes / forced calls, but not offered to the model (its window is full)
 
     def schema(self) -> dict:
         props = {k: {"type": t, "description": d} for k, (t, d, _) in self.params.items()}
@@ -49,9 +54,9 @@ class Tool:
 REGISTRY: dict[str, Tool] = {}
 
 
-def tool(description: str, risky: bool = False, **params):
+def tool(description: str, risky: bool = False, hidden: bool = False, **params):
     def deco(fn):
-        REGISTRY[fn.__name__] = Tool(fn.__name__, description, params, fn, risky)
+        REGISTRY[fn.__name__] = Tool(fn.__name__, description, params, fn, risky, hidden)
         return fn
     return deco
 
@@ -63,7 +68,8 @@ class Ctx:
     alerts = None
     security = None
     reminders = None
-    execute = None          # Brain._execute, so protocols go through the same confirmation rules
+    agenda = None           # agenda.Agenda: Gmail + Google Calendar deadlines (None when switched off)
+    execute = None         # Brain._execute, so protocols go through the same confirmation rules
     last_opened = None      # ("app", name) or ("tab", url): what "close it" / "close that" refers to
     note = None             # something the reflexes found out that the language model should know for this request
 
@@ -806,16 +812,16 @@ def press_keys(keys: str):
     return f"Pressed {'+'.join(parts)}."
 
 
-class _KI(ctypes.Structure):
-    _fields_ = [("wVk", wintypes.WORD), ("wScan", wintypes.WORD), ("dwFlags", wintypes.DWORD),
-                ("time", wintypes.DWORD), ("dwExtraInfo", ctypes.c_void_p)]
+if os.name == "nt":
+    class _KI(ctypes.Structure):
+        _fields_ = [("wVk", wintypes.WORD), ("wScan", wintypes.WORD), ("dwFlags", wintypes.DWORD),
+                    ("time", wintypes.DWORD), ("dwExtraInfo", ctypes.c_void_p)]
 
-
-class _INPUT(ctypes.Structure):
-    class _U(ctypes.Union):
-        _fields_ = [("ki", _KI), ("pad", ctypes.c_byte * 32)]
-    _anonymous_ = ("u",)
-    _fields_ = [("type", wintypes.DWORD), ("u", _U)]
+    class _INPUT(ctypes.Structure):
+        class _U(ctypes.Union):
+            _fields_ = [("ki", _KI), ("pad", ctypes.c_byte * 32)]
+        _anonymous_ = ("u",)
+        _fields_ = [("type", wintypes.DWORD), ("u", _U)]
 
 
 @tool("Type text into the window that currently has focus (dictation).", text=("string", "text to type", True))
@@ -995,6 +1001,35 @@ def cancel_reminder(about: str):
     return f"Cancelled {n} reminder(s)." if n else "No matching reminder."
 
 
+# Hidden from the model: the system prompt + tool list already fill ~3,700 of its 4,096 tokens. Deadline / calendar /
+# email questions are answered by reflexes (router._agenda), and anything that reaches the model about them gets the
+# real data put in front of it first (brain.FORCED_TOOLS), so it never has to ask for it.
+@tool("The user's Gmail and Google Calendar: deadlines, assignments and anything due, today's or tomorrow's "
+      "schedule, unread emails. Never guess these.", hidden=True,
+      action=("string", "'overview', 'deadlines', 'today', 'tomorrow', 'emails', 'refresh', or 'done' (mark a "
+                        "deadline finished; value = its name)", True),
+      value=("string", "for 'done': which deadline", False))
+def agenda(action: str = "overview", value: str = ""):
+    a = Ctx.agenda
+    if a is None:
+        return "Calendar and email tracking is switched off ([agenda] enabled = false in config.toml)."
+    action = (action or "overview").lower().strip()
+    if action == "deadlines":
+        return a.deadlines_text()
+    if action in ("today", "tomorrow", "calendar", "schedule"):
+        return a.day_text(1 if action == "tomorrow" else 0)
+    if action in ("emails", "email", "mail", "inbox"):
+        return a.mail_text()
+    if action in ("refresh", "sync"):
+        if not a.connected():
+            return a.deadlines_text()
+        ok = a.sync()
+        return ("Synced, sir. " if ok else "Synced, with some trouble, sir. ") + a.deadlines_text()
+    if action == "done":
+        return a.mark_done(value)
+    return a.overview()
+
+
 # ------------------------------------------------------------------ files
 @tool("Find files by name under a folder (default: home folder).",
       pattern=("string", "part of the file name", True), folder=("string", "folder to search, e.g. Documents", False))
@@ -1002,7 +1037,7 @@ def find_files(pattern: str, folder: str = ""):
     base = _user_path(folder) if folder else HOME
     hits, start = [], time.time()
     for root, dirs, files in os.walk(base):
-        dirs[:] = [d for d in dirs if not d.startswith(".") and d not in ("AppData", "node_modules", ".venv")]
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d not in ("AppData", "Library", "node_modules", ".venv")]
         hits += [os.path.join(root, f) for f in files if pattern.lower() in f.lower()]
         if len(hits) >= 10 or time.time() - start > 8:
             break
@@ -1128,3 +1163,16 @@ def orb(action: str, value: str = ""):
 
 def notify(title: str, body: str):
     toast(title, body)
+
+
+def open_file(path):
+    """Open a file or folder in its default program."""
+    os.startfile(path)
+
+
+# On a Mac, swap everything above that talks to Windows for its macOS version (same names, same arguments).
+import sys as _sys
+if _sys.platform == "darwin":
+    from . import macos as _macos
+    open_file = _macos.open_file
+    _macos.install()

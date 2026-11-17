@@ -10,7 +10,7 @@ from pathlib import Path
 from .config import ROOT, ensure_home, find_ollama
 
 BRAINS = {
-    "1": ("qwen2.5:7b", "best answers; wants a 6 GB+ NVIDIA GPU or 16 GB RAM (4.7 GB download)"),
+    "1": ("qwen2.5:7b", "best answers; wants a 6 GB+ NVIDIA GPU, an Apple-silicon Mac, or 16 GB RAM (4.7 GB download)"),
     "2": ("qwen2.5:3b", "lighter and faster on laptops without a big GPU (1.9 GB download)"),
 }
 
@@ -48,8 +48,10 @@ def step(n: int, title: str):
 
 def setup(argv: list[str]):
     assume = "--yes" in argv or "-y" in argv
-    if os.name != "nt":
-        sys.exit("Jarvis runs on Windows 10/11 only.")
+    skip_brain = "--no-brain" in argv           # (used by the automated install test: no multi-GB download)
+    mac = sys.platform == "darwin"
+    if os.name != "nt" and not mac:
+        sys.exit("Jarvis runs on Windows 10/11 and macOS.")
     home = ensure_home()
     print(f"J.A.R.V.I.S. setup\nEverything Jarvis keeps (settings, models, logs) lives in:\n  {home}")
 
@@ -73,15 +75,18 @@ def setup(argv: list[str]):
 
     step(4, "Ollama")
     exe = find_ollama()
-    if not exe:
+    if not exe and not skip_brain:
         print("  Ollama (the program that runs the language model) is not installed.")
-        if shutil.which("winget") and yes("  Install it now with winget?", True, assume):
+        if mac:
+            exe = _install_ollama_mac(assume)
+        elif shutil.which("winget") and yes("  Install it now with winget?", True, assume):
             subprocess.call(["winget", "install", "--id", "Ollama.Ollama", "-e",
                              "--accept-source-agreements", "--accept-package-agreements"])
             exe = find_ollama()
         if not exe:
             print("  Get it from https://ollama.com/download, then run:  ollama pull " + model)
-    if exe:
+    if exe and not skip_brain:
+        _ensure_ollama_running(exe)
         have = subprocess.run([exe, "list"], capture_output=True, text=True).stdout
         if model in have:
             print(f"  {model} is already downloaded.")
@@ -89,6 +94,12 @@ def setup(argv: list[str]):
             subprocess.call([exe, "pull", model])
         else:
             print(f"  Later, run:  ollama pull {model}")
+    if skip_brain:
+        print("  Skipped (--no-brain). Later: install Ollama, then  ollama pull " + model)
+    if mac:
+        print("\n  macOS will ask for a few permissions the first time each is needed (System Settings > Privacy &\n"
+              "  Security, for the Terminal app): Microphone (to hear you), Accessibility (to press keys and type),\n"
+              "  Screen Recording (screenshots / reading the screen), Camera (Face guard), Automation (to control apps).")
 
     step(5, "Face guard (optional)")
     print("  Face guard locks the laptop when a stranger is at the keyboard. It stays idle until you enrol your face.")
@@ -99,27 +110,79 @@ def setup(argv: list[str]):
         print("  Later:  jarvis enroll-face")
 
     print("\nSetup finished.\n"
-          "  jarvis              start Jarvis (say \"Hey Jarvis\", or press Ctrl+Alt+J)\n"
+          "  jarvis              start Jarvis (say \"Hey Jarvis\"" + (")\n" if mac else ", or press Ctrl+Alt+J)\n") +
           "  jarvis check        self-test every component\n"
           "  jarvis mic-test     check the microphone\n"
           "  jarvis config       edit the settings\n"
           "  jarvis --help       everything else")
 
 
+def _install_ollama_mac(assume: bool) -> str | None:
+    """Homebrew if it is there, otherwise the official app from ollama.com into /Applications."""
+    if shutil.which("brew") and yes("  Install it now with Homebrew?", True, assume):
+        subprocess.call(["brew", "install", "ollama"])
+        return find_ollama()
+    if yes("  Download the Ollama app now (about 200 MB)?", True, assume):
+        import tempfile
+        import urllib.request
+        import zipfile
+        apps = Path("/Applications") if os.access("/Applications", os.W_OK) else Path.home() / "Applications"
+        apps.mkdir(exist_ok=True)
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                z = Path(tmp) / "Ollama-darwin.zip"
+                print("  Downloading Ollama ...", flush=True)
+                urllib.request.urlretrieve("https://ollama.com/download/Ollama-darwin.zip", z)
+                # `ditto` keeps the app's signature and permissions intact (Python's zipfile would not)
+                subprocess.check_call(["ditto", "-x", "-k", str(z), str(apps)])
+            subprocess.call(["open", "-g", str(apps / "Ollama.app")])
+            time.sleep(4)
+        except Exception as e:
+            print(f"  That didn't work ({e}).")
+    return find_ollama()
+
+
+def _ensure_ollama_running(exe: str):
+    """`ollama list` / `ollama pull` need the server; start it quietly if it isn't up."""
+    import urllib.request
+    for attempt in range(2):
+        try:
+            urllib.request.urlopen("http://127.0.0.1:11434/api/version", timeout=2).read()
+            return
+        except Exception:
+            if attempt == 0:
+                from .config import NO_WINDOW
+                try:
+                    subprocess.Popen([exe, "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                     creationflags=NO_WINDOW)
+                except Exception:
+                    return
+                time.sleep(4)
+
+
+def _open(path, edit: bool = False):
+    if sys.platform == "darwin":
+        subprocess.Popen(["open", "-t", str(path)] if edit else ["open", str(path)])
+    elif edit:
+        try:
+            os.startfile(path, "edit")
+        except OSError:
+            subprocess.Popen(["notepad.exe", str(path)])
+    else:
+        os.startfile(path)
+
+
 def open_config():
     ensure_home()
     path = ROOT / "config.toml"
     print(path)
-    try:
-        os.startfile(path, "edit")
-    except OSError:
-        subprocess.Popen(["notepad.exe", str(path)])
+    _open(path, edit=True)
 
 
 def show_home():
     ensure_home()
     print(ROOT)
-    os.startfile(ROOT)
+    _open(ROOT)
 
 
 def coursera_mode():
@@ -132,7 +195,11 @@ def coursera_mode():
     if not (ext / "manifest.json").exists():
         sys.exit(f"The Chrome helper is missing from {ext}.")
     print("Closing Chrome so the Jarvis Coursera helper can load (your tabs will reopen)...")
-    subprocess.call(["taskkill", "/IM", "chrome.exe"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if sys.platform == "darwin":
+        subprocess.call(["osascript", "-e", 'tell application "Google Chrome" to quit'],
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    else:
+        subprocess.call(["taskkill", "/IM", "chrome.exe"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     time.sleep(2)
     subprocess.Popen([chrome, "--profile-directory=Default", "--restore-last-session", f"--load-extension={ext}"])
     print("Done. Open your Coursera course, then tell Jarvis \"resume my coursera course\".")

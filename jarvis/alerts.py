@@ -58,7 +58,15 @@ class AlertBus:
 
 
 def toast(title: str, body: str):
-    """Show a Windows toast notification through PowerShell (no extra dependencies)."""
+    """Show a desktop notification: a Windows toast through PowerShell, or Notification Centre on a Mac
+    (no extra dependencies either way)."""
+    import sys
+    if sys.platform == "darwin":
+        from .macos import notify
+        return notify(title, body)
+    if sys.platform != "win32":
+        return
+
     def esc(s):
         return (s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
                  .replace('"', "&quot;").replace("'", "''"))

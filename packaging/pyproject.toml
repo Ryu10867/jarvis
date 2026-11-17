@@ -4,25 +4,29 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jarvis-assistant"
-version = "1.0.0"
-description = "J.A.R.V.I.S.: an offline, Iron-Man-style voice assistant and laptop security layer for Windows"
+version = "1.1.0"
+description = "J.A.R.V.I.S.: an offline, Iron-Man-style voice assistant and laptop security layer for Windows and macOS"
 readme = "README.md"
 requires-python = ">=3.11"
 classifiers = [
     "Operating System :: Microsoft :: Windows :: Windows 10",
     "Operating System :: Microsoft :: Windows :: Windows 11",
+    "Operating System :: MacOS :: MacOS X",
     "Programming Language :: Python :: 3",
-    "Environment :: Win32 (MS Windows)",
     "Topic :: Multimedia :: Sound/Audio :: Speech",
 ]
 dependencies = [
     "opencv-python>=4.9",
     "numpy",
-    "vosk",
+    "vosk; sys_platform != 'darwin'",
+    "vosk==0.3.44; sys_platform == 'darwin'",          # the last release with a macOS (universal) build
     "sounddevice",
     "psutil",
     "watchdog",
-    "comtypes",
+    "certifi",
+    "comtypes; sys_platform == 'win32'",
+    "pyobjc-framework-Quartz; sys_platform == 'darwin'",
+    "pyobjc-framework-Vision; sys_platform == 'darwin'",
     "onnxruntime",
     "onnx-asr[hub]",
     "piper-tts",

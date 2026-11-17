@@ -12,7 +12,7 @@ def main(cam_index: int = 0):
     from .config import resolve
     from .security.face_engine import OWNER_DB, FaceEngine
     engine = FaceEngine()
-    cam = cv2.VideoCapture(cam_index, cv2.CAP_DSHOW)
+    cam = cv2.VideoCapture(cam_index, cv2.CAP_DSHOW) if sys.platform == "win32" else cv2.VideoCapture(cam_index)
     if not cam.isOpened():
         sys.exit("Could not open the camera.")
     embeddings, frame_no = [], 0

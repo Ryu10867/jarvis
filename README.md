@@ -1,20 +1,30 @@
 # J.A.R.V.I.S. — voice assistant + laptop security layer
 
-An Iron-Man-style assistant for **Windows 10/11** that runs **fully offline** on your own laptop.
+An Iron-Man-style assistant for **Windows 10/11** and **macOS 12+** (beta) that runs **fully offline** on your own
+laptop. Website: **https://ryu10867.github.io/jarvis/**
 
 ## Install
-**Easiest:** download `Jarvis-Installer-x.y.z.zip` from the [Releases](../../releases) page, unzip it and double-click
-**`install.bat`**. It sets up Python, Ollama, the speech models and a Desktop shortcut, and asks you a few questions.
-See [packaging/INSTALL.md](packaging/INSTALL.md) for details.
-
-**With Python 3.11+ already installed:**
+**Windows**, in PowerShell:
 ```powershell
-pip install "jarvis-assistant @ https://github.com/Ryu10867/jarvis/releases/latest/download/jarvis_assistant-1.0.0-py3-none-any.whl"
-python -m jarvis setup      # your name, the AI model, speech models, optional face enrolment
-python -m jarvis            # start (say "Hey Jarvis", click the orb, or press Ctrl+Alt+J)
+irm https://ryu10867.github.io/jarvis/install.ps1 | iex
 ```
-**From source:** clone, `python -m venv .venv`, `.venv\Scripts\pip install -r requirements.txt`,
-`.venv\Scripts\python setup_models.py`, then `run_jarvis.bat`. Build the installer with `build_package.ps1`.
+**macOS**, in Terminal:
+```bash
+curl -fsSL https://ryu10867.github.io/jarvis/install.sh | bash
+```
+Either one sets up a private Python environment, the speech models, Ollama and a Desktop launcher, and asks you a
+few questions. Prefer a download? Get `Jarvis-Installer-Windows.zip` or `Jarvis-Installer-macOS.zip` from the
+[Releases](../../releases/latest) page, unzip, and double-click `install.bat` / `Install Jarvis.command`.
+See [packaging/INSTALL.md](packaging/INSTALL.md) for details, and for what differs on a Mac (he appears as a window
+rather than the floating orb, no global hotkey yet, three of the six security monitors).
+
+**From source (Windows):** clone, `python -m venv .venv`, `.venv\Scripts\pip install -r requirements.txt`,
+`.venv\Scripts\python setup_models.py`, then `run_jarvis.bat`.
+
+**Building a release:** `build_package.ps1` builds the wheel, both installer zips (`dist\`) and the website (`docs\`,
+served by GitHub Pages; its source is `packaging\site\page.html`). The macOS code lives in `jarvis\macos.py`: it swaps
+the Windows system calls in `tools.py` for AppleScript / Vision equivalents under the same tool names.
+`.github\workflows\installers.yml` runs both installers on real Windows and macOS machines and smoke-tests the result.
 
 ## What's inside
 
@@ -77,6 +87,11 @@ purple, red), *"get bigger / smaller"*, *"move to the top left corner"*, *"open 
 - **"Again"** repeats the last action; **"what did you say?"** repeats the last reply; **"close it"** closes whatever
   he opened last.
 - You can always type in the orb's console instead (double-click the orb).
+- **He follows you word by word.** Your words appear under the orb as you say them, and Whisper transcribes each
+  part of the sentence at your natural pauses *while you are still talking*, so the moment you stop, the sentence is
+  already understood (measured: the accurate text is ready 0.4-0.6 s sooner, longer sentences gain the most). A
+  phrase that is already a complete known command ("open Chrome", "what time is it") ends after a 0.35 s pause
+  instead of 0.7 s. Settings: `stream_transcribe`, `stream_pause`, `quick_endpoint`, `live_captions` in `[voice]`.
 
 ### If he doesn't hear the wake word
 1. Say **"Hey Jarvis"** rather than just "Jarvis".
@@ -128,6 +143,21 @@ charger is connected or removed, "welcome back" when you return. Never spoken du
 - Completion is read from Coursera's own markers and Coursera records it the normal way — Jarvis never marks
   anything complete itself.
 - Words like "next", "pause" and "skip" mean Coursera only while a Coursera tab is open. Otherwise they are media keys.
+
+**Deadlines, calendar and Gmail** (one-time setup: `run_jarvis.bat connect-google`):
+- Jarvis reads your Google Calendars (including the **Google Classroom** calendar, where assignment due dates live)
+  and the emails in Gmail that mention a due date ("Due Nov 20, 11:59 PM", "last date for submission is
+  25/11/2026", "submit by Friday 5 pm"). Promotions and Social are skipped.
+- He **reminds you 3 days, 1 day, 6 hours and 1 hour before** every deadline, says when a **new deadline** or a
+  **new email** (Primary inbox) arrives, warns **10 minutes before** a calendar event, and mentions the nearest
+  deadline in his start-up greeting. Each reminder also pops up as a Windows notification.
+- Ask: "what's due?", "any pending assignments?", "what's on my calendar today?", "what do I have tomorrow?",
+  "am I free today?", "check my email", "refresh my calendar". When you've finished one: "I've submitted the DBMS
+  lab" / "mark the mini project as done" and the reminders for it stop.
+- Read-only: nothing is sent, deleted or marked as read. Gmail uses an **app password** (not your real password);
+  calendars use their private iCal address. Both are stored encrypted for your Windows account
+  (`data/google.bin`). Run `connect-google` again to change or remove them. `jarvis agenda` prints what he knows.
+- During quiet hours the reminders are shown, not spoken (`speak_in_quiet_hours` in `[agenda]` changes that).
 
 **Starter code:** click inside a code editor, then say "write the Java template" (also C++, C, Python; "Java
 template with class Solution" for another class name). Jarvis **replaces what's in the editor** with the imports,

@@ -13,7 +13,13 @@ class SecurityManager:
         self.face = None
 
     def start(self):
+        import sys
         sec = self.cfg["security"]
+        if sys.platform != "win32":
+            # Process watch (PowerShell / registry rules), USB watch and Login watch read Windows-only sources.
+            # On a Mac: Face guard, Network watch and File watch.
+            sec = {**sec, "process_watch": {"enabled": False}, "usb_watch": {"enabled": False},
+                   "login_watch": {"enabled": False}}
         if sec["face_guard"]["enabled"]:
             try:
                 from .face_guard import FaceGuard

@@ -1,0 +1,1682 @@
+<title>J.A.R.V.I.S.</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Instrument+Serif:ital@1&display=swap">
+<style>
+/* Layout: the orb is the product, so it leads; below it one left-aligned spine of bands. Scroll drives the story:
+   a sticky live trace for "how it works", a pinned horizontal day, scrubbed type. Single dark look by choice:
+   the orb is light on darkness, like the real one floating on a desktop at night. */
+@property --sky { syntax: "<color>"; inherits: true; initial-value: #6b4316; }
+:root {
+  color-scheme: dark;
+  --ink: #06090f;          /* page ground: blue-black */
+  --deck: #0b1019;         /* raised bands */
+  --panel: #101724;        /* cards, consoles */
+  --well: #070a11;         /* terminals, wells */
+  --line: #1d2738;         /* hairlines */
+  --line-2: #2b3950;
+  --stroke: #44526b;       /* outlined type */
+  --text: #dde5f0;
+  --muted: #8d9aae;
+  --faint: #5d6a7e;
+  --gold: #f2b84b;         /* the one accent: the orb's default colour */
+  --gold-deep: #c58a25;
+  --gold-hot: #fff6dc;
+  --gold-wash: rgba(242, 184, 75, .1);
+  --arc: #5cc8f5;          /* state colour: listening */
+  --ok: #6fd6a0;
+  --alert: #ff7466;
+  --on-gold: #1a1204;
+  --display: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --voice: "Instrument Serif", Georgia, "Times New Roman", serif;   /* Jarvis's own lines */
+  --wrap: 1140px;
+  --r: 14px;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+html.lenis, html.lenis body { height: auto; }
+html.lenis, .lenis.lenis-smooth { scroll-behavior: auto !important; }   /* Lenis does the smoothing; the browser must not smooth it twice */
+.lenis.lenis-stopped { overflow: hidden; }
+body { background: var(--ink); color: var(--text); font: 400 16px/1.6 var(--body); -webkit-font-smoothing: antialiased; overflow-x: clip; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--ink); }
+::selection { background: var(--gold); color: var(--on-gold); }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 4px; }
+.wrap { max-width: var(--wrap); margin-inline: auto; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--display); font-weight: 600; line-height: 1.12; margin: 0; text-wrap: balance; letter-spacing: -.01em; }
+h2 { font-size: clamp(1.8rem, 3.6vw, 2.7rem); }
+h3 { font-size: 1.12rem; letter-spacing: 0; }
+p { margin: 0; }
+.eyebrow { font: 500 .74rem/1 var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--gold); display: flex; align-items: center; gap: 10px; }
+.eyebrow::before { content: ""; width: 18px; height: 1px; background: currentColor; }
+.lede { color: var(--muted); font-size: 1.06rem; max-width: 62ch; }
+.voice { font-family: var(--voice); font-style: italic; font-size: 1.22em; letter-spacing: .005em; }
+code, kbd { font-family: var(--mono); font-size: .9em; }
+kbd { border: 1px solid var(--line-2); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; color: var(--text); background: var(--panel); white-space: nowrap; }
+
+/* ---------- boot sequence (first visit per session) */
+.boot { position: fixed; inset: 0; z-index: 100; background: var(--ink); display: grid; place-content: center; justify-items: center; gap: 30px; transition: opacity .75s ease, visibility .75s; animation: boot-fail .5s 4.5s forwards; cursor: pointer; }
+.boot.out { opacity: 0; visibility: hidden; }
+@keyframes boot-fail { to { opacity: 0; visibility: hidden; } }
+.boot-core { width: 92px; height: 92px; position: relative; transition: transform .9s cubic-bezier(.7, 0, .2, 1), opacity .8s; }
+.boot.out .boot-core { transform: scale(7); opacity: 0; }
+.boot-core i { position: absolute; inset: 24px; border-radius: 50%; background: radial-gradient(circle at 38% 36%, var(--gold-hot), var(--gold) 45%, var(--gold-deep)); box-shadow: 0 0 40px var(--gold), 0 0 90px rgba(242, 184, 75, .4); animation: core 1.1s ease-in-out infinite alternate; }
+.boot-core::before, .boot-core::after { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 1px solid rgba(242, 184, 75, .55); border-top-color: transparent; border-left-color: transparent; animation: spin 1.3s linear infinite; }
+.boot-core::after { inset: -14px; border-color: rgba(92, 200, 245, .35); border-bottom-color: transparent; animation-duration: 2.2s; animation-direction: reverse; }
+@keyframes core { from { transform: scale(.88); } to { transform: scale(1.06); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+.boot-log { margin: 0; font: 400 .82rem/1.75 var(--mono); color: var(--muted); min-height: 14em; width: 31ch; max-width: calc(100vw - 40px); white-space: pre; }
+.boot-log .g { color: var(--gold); letter-spacing: .14em; }
+.boot-log .ok { color: var(--ok); }
+.boot-log .v { font-family: var(--voice); font-style: italic; color: var(--text); font-size: 1.25rem; }
+.boot-skip { position: absolute; left: 0; right: 0; bottom: calc(26px + env(safe-area-inset-bottom, 0px)); text-align: center; font: 500 .68rem/1 var(--mono); letter-spacing: .18em; color: var(--faint); text-transform: uppercase; }
+
+/* ---------- header */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: rgba(6, 9, 15, .78); backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%); border-bottom: 1px solid var(--line); transition: transform .45s var(--ease); }
+.top.hide { transform: translateY(calc(-100% - env(safe-area-inset-top, 0px))); }
+.top .wrap { display: flex; align-items: center; gap: 24px; min-height: 60px; }
+.prog { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: linear-gradient(90deg, var(--gold-deep), var(--gold), var(--gold-hot)); transform-origin: 0 50%; transform: scaleX(0); box-shadow: 0 0 10px rgba(242, 184, 75, .6); }
+.brand { font: 700 1.05rem/1 var(--display); letter-spacing: .2em; text-decoration: none; display: flex; align-items: center; gap: 10px; }
+.brand i { width: 12px; height: 12px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, var(--gold-hot), var(--gold) 45%, var(--gold-deep)); box-shadow: 0 0 14px var(--gold); animation: core 1.8s ease-in-out infinite alternate; }
+.top nav { display: flex; gap: 22px; margin-left: auto; align-items: center; }
+.top nav a { text-decoration: none; color: var(--muted); font-size: .92rem; position: relative; transition: color .2s; }
+.top nav a:not(.cta)::after { content: ""; position: absolute; left: 0; right: 0; bottom: -6px; height: 1px; background: var(--gold); transform: scaleX(0); transition: transform .35s var(--ease); }
+.top nav a:hover, .top nav a[aria-current="true"] { color: var(--text); }
+.top nav a[aria-current="true"]::after { transform: scaleX(1); }
+.top nav a.cta { color: var(--on-gold); background: var(--gold); padding: 7px 14px; border-radius: 8px; font-weight: 600; translate: var(--tx, 0px) var(--ty, 0px); transition: translate .35s var(--ease), background .2s; }
+.top nav a.cta:hover { background: #ffc960; }
+@media (max-width: 820px) { .top nav a:not(.cta) { display: none; } }
+
+/* ---------- buttons */
+.btn { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font: 600 .98rem/1 var(--body); padding: 14px 20px; border-radius: 10px; border: 1px solid var(--line-2); color: var(--text); background: var(--panel); cursor: pointer; translate: var(--tx, 0px) var(--ty, 0px); transition: translate .35s var(--ease), border-color .2s, background .2s, box-shadow .3s; }
+.btn:hover { border-color: var(--gold); }
+.btn.primary { background: var(--gold); color: var(--on-gold); border-color: var(--gold); box-shadow: 0 0 0 0 rgba(242, 184, 75, 0); }
+.btn.primary:hover { background: #ffc960; box-shadow: 0 8px 34px -6px rgba(242, 184, 75, .55); }
+.btn small { font: 400 .76rem/1 var(--mono); opacity: .75; }
+.btn svg { width: 18px; height: 18px; flex: none; }
+
+/* ---------- hero */
+.hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--line); background:
+  radial-gradient(900px 520px at 78% 38%, rgba(242, 184, 75, .1), transparent 62%),
+  radial-gradient(700px 500px at 8% 110%, rgba(92, 200, 245, .07), transparent 60%), var(--ink); }
+.hero::before { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background-image: linear-gradient(rgba(43, 57, 80, .26) 1px, transparent 1px), linear-gradient(90deg, rgba(43, 57, 80, .26) 1px, transparent 1px);
+  background-size: 56px 56px; background-position: center;
+  -webkit-mask-image: radial-gradient(ellipse 60% 70% at 72% 40%, #000 10%, transparent 72%); mask-image: radial-gradient(ellipse 60% 70% at 72% 40%, #000 10%, transparent 72%); }
+.field { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.hero > .wrap { position: relative; z-index: 1; }
+.hero .lead { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 32px; align-items: center; padding-block: 56px 52px; }
+.hero h1 { font-size: clamp(2.6rem, 6.4vw, 4.9rem); letter-spacing: -.025em; margin-top: 18px; line-height: 1.02; }
+.hero h1 .ln { display: block; overflow: hidden; padding: .04em .12em .1em 0; margin-bottom: -.06em; }
+.hero h1 .ln > span { display: inline-block; }
+.hero h1 em { font-family: var(--voice); font-style: italic; font-weight: 400; color: var(--gold); letter-spacing: 0; text-shadow: 0 0 40px rgba(242, 184, 75, .35); }
+.hero .lede { margin-top: 22px; font-size: 1.14rem; }
+.hero .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+.hero .fine { margin-top: 16px; color: var(--faint); font-size: .86rem; }
+.intro .hero [data-in] { opacity: 0; animation: failsafe 0s 3s forwards; }
+.intro .hero h1 .ln > span { transform: translateY(115%); animation: failsafe 0s 3s forwards; }
+@keyframes failsafe { to { opacity: 1; transform: none; } }
+.stage { position: relative; display: grid; justify-items: center; min-width: 0; }
+.orbwrap { position: relative; width: min(100%, 460px); aspect-ratio: 1; max-width: 100%; }
+.orbwrap canvas { width: 100%; height: 100%; display: block; cursor: pointer; }
+.hud { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; color: var(--gold); overflow: visible; transition: color .6s; }
+.hud-spin { transform-origin: 230px 230px; animation: spin 90s linear infinite; }
+.hud text { font: 500 9.5px var(--mono); letter-spacing: .14em; fill: currentColor; opacity: .62; }
+.caption { width: min(100%, 430px); min-height: 104px; margin-top: -18px; background: rgba(9, 13, 21, .9); border: 1px solid var(--line-2); border-radius: 12px; padding: 12px 16px 14px; text-align: center; position: relative; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.caption .who { font: 500 .7rem/1 var(--mono); letter-spacing: .18em; color: var(--gold); }
+.caption .who.you { color: var(--arc); }
+.caption .said { margin-top: 8px; min-height: 3.1em; font-size: 1rem; line-height: 1.45; }
+.caption .said.j { font-family: var(--voice); font-style: italic; font-size: 1.24rem; line-height: 1.3; }
+.themes { display: flex; align-items: center; gap: 10px; margin-top: 14px; color: var(--faint); font: 400 .78rem/1 var(--mono); flex-wrap: wrap; justify-content: center; }
+.themes button { width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; padding: 0; cursor: pointer; background: var(--c); box-shadow: 0 0 0 1px var(--line-2); transition: transform .2s var(--ease); }
+.themes button:hover { transform: scale(1.15); }
+.themes button[aria-pressed="true"] { border-color: var(--text); }
+@media (max-width: 900px) { .hero .lead { grid-template-columns: minmax(0, 1fr); padding-block: 30px 40px; } .stage { order: -1; } .orbwrap { width: min(80%, 340px); } }
+
+/* ---------- facts strip */
+.facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); }
+.facts div { padding: 26px 24px 30px; border-left: 1px solid var(--line); min-width: 0; }
+.facts div:first-child { border-left: 0; padding-left: 0; }
+.facts b { display: block; font: 600 2rem/1.1 var(--display); margin-bottom: 6px; color: var(--text); font-variant-numeric: tabular-nums; }
+.facts span { color: var(--muted); font-size: .9rem; }
+@media (max-width: 760px) { .facts { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .facts div { padding: 18px 14px; } .facts b { font-size: 1.6rem; } .facts div:nth-child(odd) { border-left: 0; padding-left: 0; } .facts div:nth-child(n+3) { border-top: 1px solid var(--line); } }
+
+/* ---------- marquee of things to say: speed and direction follow your scrolling */
+.marquee { border-bottom: 1px solid var(--line); padding-block: 26px; display: grid; gap: 8px; overflow: hidden; }
+.mq { overflow: hidden; white-space: nowrap; -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent); mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent); }
+.mq-track { display: inline-flex; will-change: transform; }
+.mq span { display: inline-flex; align-items: center; gap: 40px; padding-right: 40px; font: 600 clamp(1.4rem, 3.4vw, 2.5rem)/1.25 var(--display); letter-spacing: -.01em; }
+.mq span::after { content: ""; width: 9px; height: 9px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, var(--gold-hot), var(--gold) 50%, var(--gold-deep)); box-shadow: 0 0 12px var(--gold); flex: none; }
+.mq.alt span { color: var(--faint); }
+@supports (-webkit-text-stroke: 1px black) { .mq.alt span { color: transparent; -webkit-text-stroke: 1px var(--stroke); } }
+.mq.alt span::after { background: var(--line-2); box-shadow: none; }
+
+/* ---------- bands */
+.band { padding-block: 96px; border-bottom: 1px solid var(--line); position: relative; }
+.band.deck { background: var(--deck); }
+.band header { display: grid; gap: 14px; margin-bottom: 44px; }
+@media (max-width: 760px) { .band { padding-block: 60px; } }
+.note { color: var(--faint); font-size: .85rem; margin-top: 18px; }
+
+/* ---------- how it works: a sticky live trace, the steps scroll past it */
+.flow { display: grid; grid-template-columns: minmax(0, 1.02fr) minmax(0, .98fr); gap: 56px; align-items: start; }
+.flow-vis { position: sticky; top: 92px; z-index: 2; }
+.vis { background: var(--well); border: 1px solid var(--line-2); border-radius: var(--r); overflow: hidden; box-shadow: 0 30px 80px -40px rgba(0, 0, 0, .9); }
+.vis-bar { display: flex; justify-content: space-between; gap: 12px; padding: 11px 16px; border-bottom: 1px solid var(--line); font: 500 .72rem/1 var(--mono); letter-spacing: .14em; color: var(--muted); }
+.vis-bar b { color: var(--gold); font-weight: 500; }
+.vis canvas { display: block; width: 100%; height: 190px; border-bottom: 1px solid var(--line); }
+.trace { list-style: none; margin: 0; padding: 10px 0 12px; font: 400 .8rem/1.45 var(--mono); }
+.trace li { display: grid; grid-template-columns: 44px 70px minmax(0, 1fr); gap: 10px; padding: 6px 16px; transition: opacity .45s, background .45s; }
+.trace time { color: var(--faint); font-variant-numeric: tabular-nums; }
+.trace b { font-weight: 500; color: var(--arc); }
+.trace span { color: var(--muted); }
+.flow.live .trace li { opacity: .26; }
+.flow.live .trace li.lit { opacity: .75; }
+.flow.live .trace li.cur { opacity: 1; background: var(--gold-wash); }
+.trace li.cur b { color: var(--gold); }
+.trace li.cur span { color: var(--text); }
+.flow-steps { list-style: none; margin: 0; padding: 0; position: relative; }
+.rail { position: absolute; left: 0; top: 0; bottom: 0; width: 1px; background: var(--line); }
+.rail i { position: absolute; inset: 0; background: linear-gradient(var(--gold), var(--gold-deep)); transform-origin: 50% 0; box-shadow: 0 0 8px var(--gold); }
+.fstep { min-height: 62vh; display: grid; align-content: center; gap: 12px; padding: 28px 0 28px 34px; position: relative; transition: opacity .45s; }
+.fstep::before { content: ""; position: absolute; left: -5px; top: calc(50% - 5px); width: 11px; height: 11px; border-radius: 50%; background: var(--ink); border: 1px solid var(--line-2); transition: background .4s, border-color .4s, box-shadow .4s; }
+.fstep.on::before { background: var(--gold); border-color: var(--gold); box-shadow: 0 0 14px var(--gold); }
+.flow.live .fstep { opacity: .32; }
+.flow.live .fstep.on { opacity: 1; }
+.fstep .n { font: 500 .74rem/1 var(--mono); color: var(--gold); letter-spacing: .16em; }
+.fstep h3 { font-size: clamp(1.6rem, 2.8vw, 2.2rem); }
+.fstep p { color: var(--muted); max-width: 46ch; }
+.fstep .t { font: 500 .8rem/1.3 var(--mono); color: var(--arc); }
+@media (max-width: 900px) {
+  .flow { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .flow-vis { position: relative; top: auto; }
+  .flow.live .flow-vis { position: sticky; top: calc(8px + env(safe-area-inset-top, 0px)); }
+  .vis canvas { height: 120px; }
+  .flow.live .trace li:not(.cur) { display: none; }
+  .fstep { min-height: 52vh; padding-left: 26px; }
+}
+
+/* ---------- abilities */
+.grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; }
+.cap { grid-column: span 2; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 24px 22px 26px; display: grid; gap: 10px; align-content: start; min-width: 0; position: relative; isolation: isolate; transition: border-color .3s; }
+.cap::before { content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: -1; pointer-events: none; opacity: 0; transition: opacity .35s;
+  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgba(242, 184, 75, .11), transparent 45%); }
+.cap:hover { border-color: rgba(242, 184, 75, .35); }
+.cap:hover::before { opacity: 1; }
+.cap.wide { grid-column: span 3; padding: 30px 28px 32px; background: linear-gradient(160deg, #131c2c, var(--panel) 60%); }
+.cap p { color: var(--muted); font-size: .95rem; }
+.cap ul { margin: 4px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; color: var(--muted); font-size: .92rem; }
+.cap ul li { padding-left: 16px; position: relative; }
+.cap ul li::before { content: ""; position: absolute; left: 0; top: .62em; width: 6px; height: 1px; background: var(--gold); }
+.cap .k { font: 500 .7rem/1 var(--mono); letter-spacing: .16em; color: var(--gold); text-transform: uppercase; }
+.cap.wide h3 { font-size: 1.45rem; }
+@media (max-width: 900px) { .cap, .cap.wide { grid-column: span 6; } }
+
+.all { margin-top: 56px; display: grid; gap: 22px; }
+.all-head { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+.all-head h3 { font-size: 1.35rem; }
+.all-head p { color: var(--faint); font: 400 .8rem/1.4 var(--mono); }
+.all-head p i { font-style: normal; color: var(--alert); }
+.groups { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.groups section { padding: 20px 20px 22px; border-left: 1px solid var(--line); border-top: 1px solid var(--line); min-width: 0; }
+.groups section:nth-child(3n+1) { border-left: 0; }
+.groups section:nth-child(-n+3) { border-top: 0; }
+.groups h4 { margin: 0 0 12px; font: 500 .72rem/1 var(--mono); letter-spacing: .14em; color: var(--muted); text-transform: uppercase; display: flex; justify-content: space-between; }
+.groups h4 b { color: var(--gold); font-weight: 500; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.chips li { font-size: .86rem; padding: 5px 10px; border: 1px solid var(--line-2); border-radius: 999px; color: var(--text); background: rgba(16, 23, 36, .6); transition: border-color .2s, color .2s; }
+.chips li:hover { border-color: var(--gold); color: var(--gold); }
+.chips li.r { border-color: rgba(255, 116, 102, .45); }
+.chips li.r::after { content: " \2022"; color: var(--alert); }
+@media (max-width: 900px) { .groups { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .groups section { border-left: 1px solid var(--line) !important; border-top: 1px solid var(--line) !important; } .groups section:nth-child(odd) { border-left: 0 !important; } .groups section:nth-child(-n+2) { border-top: 0 !important; } }
+@media (max-width: 600px) { .groups { grid-template-columns: minmax(0, 1fr); } .groups section { border-left: 0 !important; } .groups section:nth-child(2) { border-top: 1px solid var(--line) !important; } }
+
+/* ---------- a day with Jarvis: pinned and scrolled sideways on wide screens, swiped on phones */
+.day { position: relative; overflow: hidden; border-bottom: 1px solid var(--line); background-color: var(--ink);
+  background-image: radial-gradient(1100px 620px at 78% -12%, color-mix(in srgb, var(--sky) 60%, transparent), transparent 70%); transition: --sky 1.1s ease; }
+.day-pin { padding-block: 96px 80px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 34px; }
+.day-pin > .wrap { width: 100%; }               /* a grid item with auto margins would shrink to its content */
+.day-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: end; }
+.day-head .txt { display: grid; gap: 14px; }
+.day-clock { text-align: right; }
+.day-clock small { display: block; font: 500 .7rem/1 var(--mono); letter-spacing: .16em; color: var(--gold); text-transform: uppercase; margin-bottom: 8px; }
+.day-clock b { font: 600 clamp(3rem, 8vw, 6.2rem)/.9 var(--display); font-variant-numeric: tabular-nums; letter-spacing: -.03em; display: block; }
+.day-bar { height: 2px; background: var(--line); border-radius: 2px; overflow: hidden; margin-top: 8px; }
+.day-bar i { display: block; height: 100%; background: linear-gradient(90deg, #ffb35c, var(--gold), var(--arc), #7c6cff); transform-origin: 0 50%; transform: scaleX(0); }
+.day-track { display: flex; gap: 18px; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; padding-bottom: 14px; scrollbar-width: thin; scrollbar-color: var(--line-2) transparent;
+  padding-left: max(20px, env(safe-area-inset-left, 0px), calc((100vw - var(--wrap)) / 2 + 20px)); padding-right: max(20px, env(safe-area-inset-right, 0px), calc((100vw - var(--wrap)) / 2 + 20px)); scroll-padding-inline: 20px; }
+.scene { flex: 0 0 min(390px, 82vw); scroll-snap-align: start; background: rgba(16, 23, 36, .78); border: 1px solid var(--line-2); border-radius: var(--r); padding: 22px 22px 24px; display: grid; gap: 16px; align-content: start; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); transition: border-color .45s, box-shadow .45s; }
+.scene.on { border-color: rgba(242, 184, 75, .55); box-shadow: 0 24px 60px -30px rgba(242, 184, 75, .35); }
+.scene > header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.scene time { font: 600 1.55rem/1 var(--display); font-variant-numeric: tabular-nums; }
+.scene .k { font: 500 .68rem/1 var(--mono); letter-spacing: .16em; color: var(--gold); text-transform: uppercase; }
+.ex { display: grid; gap: 12px; }
+.ex p { color: var(--text); }
+.ex .tag { display: block; font: 500 .66rem/1 var(--mono); letter-spacing: .16em; color: var(--arc); margin-bottom: 5px; }
+.ex .j .tag { color: var(--gold); }
+.ex .ev .tag { color: var(--alert); }
+.ex .j { font-family: var(--voice); font-style: italic; font-size: 1.24rem; line-height: 1.32; }
+.scene .what { color: var(--muted); font-size: .9rem; border-top: 1px dashed var(--line-2); padding-top: 12px; }
+.day.pinned .day-track { overflow: visible; scroll-snap-type: none; width: max-content; }
+.day.pinned .day-pin { min-height: 100vh; align-content: center; padding-block: 80px 36px; }
+@media (max-height: 780px) { .day.pinned .day-head .lede { display: none; } .day.pinned .day-pin { gap: 22px; padding-block: 70px 24px; } }
+@media (max-width: 700px) { .day-head { grid-template-columns: minmax(0, 1fr); } .day-clock { text-align: left; } .day-pin { padding-block: 60px; } }
+
+/* ---------- things to say */
+.say { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 28px; align-items: start; }
+.tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+.tabs button { font: 500 .88rem/1 var(--body); color: var(--muted); background: transparent; border: 1px solid var(--line-2); border-radius: 999px; padding: 9px 14px; cursor: pointer; transition: color .2s, border-color .2s, background .2s; }
+.tabs button:hover { color: var(--text); border-color: var(--gold); }
+.tabs button[aria-selected="true"] { color: var(--on-gold); background: var(--gold); border-color: var(--gold); }
+.phrases { display: grid; gap: 8px; }
+.phrases button { text-align: left; font: 400 .98rem/1.35 var(--body); color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; cursor: pointer; display: flex; gap: 12px; align-items: baseline; transition: border-color .2s, background .2s, transform .25s var(--ease); }
+.phrases button:hover { transform: translateX(4px); }
+.phrases button:hover, .phrases button[aria-current="true"] { border-color: var(--gold); background: #141c2b; }
+.phrases button::before { content: "\201C"; font-family: var(--voice); color: var(--gold); font-size: 1.5rem; line-height: 0; position: relative; top: .28em; }
+.console { position: sticky; top: 84px; background: var(--well); border: 1px solid var(--line-2); border-radius: var(--r); overflow: hidden; }
+.console .bar { display: flex; align-items: center; gap: 10px; padding: 11px 16px; border-bottom: 1px solid var(--line); font: 500 .72rem/1 var(--mono); letter-spacing: .14em; color: var(--muted); }
+.console .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--faint); }
+.console[data-state="listening"] .dot { background: var(--arc); box-shadow: 0 0 10px var(--arc); }
+.console[data-state="thinking"] .dot { background: var(--gold); box-shadow: 0 0 10px var(--gold); animation: blink .5s infinite alternate; }
+.console[data-state="speaking"] .dot { background: var(--ok); box-shadow: 0 0 10px var(--ok); }
+@keyframes blink { to { opacity: .35; } }
+.console .body { padding: 20px 18px 22px; display: grid; gap: 16px; min-height: 250px; align-content: start; }
+.line .tag { font: 500 .68rem/1 var(--mono); letter-spacing: .16em; color: var(--arc); }
+.line.j .tag { color: var(--gold); }
+.line p { margin-top: 6px; }
+.line.j p { font-family: var(--voice); font-style: italic; font-size: 1.32rem; line-height: 1.32; }
+.how { font: 400 .78rem/1.4 var(--mono); color: var(--muted); border-top: 1px dashed var(--line-2); padding-top: 12px; }
+.how b { color: var(--ok); font-weight: 500; }
+.how b.m { color: var(--gold); }
+@media (max-width: 900px) { .say { grid-template-columns: minmax(0, 1fr); } .console { position: static; order: -1; } .console .body { min-height: 210px; } }
+
+/* ---------- security */
+.sec { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 48px; align-items: start; }
+.radar-box { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 20px; align-items: center; margin-block: 8px 28px; }
+.radar-box canvas { width: min(46vw, 230px); aspect-ratio: 1; max-width: 100%; display: block; }
+.radar-box p { font: 500 .74rem/1.6 var(--mono); letter-spacing: .1em; color: var(--muted); }
+.radar-box p b { color: var(--ok); font-weight: 500; display: block; letter-spacing: .16em; }
+.monitors { display: grid; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.monitors div { display: grid; grid-template-columns: 160px minmax(0, 1fr) auto; gap: 16px; padding: 15px 18px; border-top: 1px solid var(--line); background: var(--panel); align-items: baseline; transition: background .25s; }
+.monitors div:hover { background: #141c2b; }
+.monitors div:first-child { border-top: 0; }
+.monitors b { font: 600 .98rem/1.3 var(--display); display: flex; align-items: center; gap: 10px; }
+.monitors b::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex: none; animation: ping 2.6s infinite; }
+.monitors div:nth-child(2) b::before { animation-delay: .4s; } .monitors div:nth-child(3) b::before { animation-delay: .8s; }
+.monitors div:nth-child(4) b::before { animation-delay: 1.2s; } .monitors div:nth-child(5) b::before { animation-delay: 1.6s; }
+.monitors div:nth-child(6) b::before { animation-delay: 2s; } .monitors div:nth-child(7) b::before { animation-delay: 2.4s; }
+@keyframes ping { 0% { box-shadow: 0 0 0 0 rgba(111, 214, 160, .5); } 70%, 100% { box-shadow: 0 0 0 8px rgba(111, 214, 160, 0); } }
+.monitors span { color: var(--muted); font-size: .92rem; }
+.monitors i { font: 500 .68rem/1 var(--mono); font-style: normal; letter-spacing: .08em; color: var(--faint); white-space: nowrap; }
+.monitors i.both { color: var(--ok); }
+.rule { padding: 20px 22px; border-left: 2px solid var(--gold); background: var(--gold-wash); border-radius: 0 10px 10px 0; }
+.rule p + p { margin-top: 8px; color: var(--muted); font-size: .95rem; }
+@media (max-width: 900px) { .sec { grid-template-columns: minmax(0, 1fr); gap: 28px; } .monitors div { grid-template-columns: minmax(0, 1fr) auto; } .monitors span { grid-column: 1 / -1; } }
+
+/* ---------- privacy */
+.statement { font: 500 clamp(1.55rem, 3.8vw, 2.75rem)/1.22 var(--display); letter-spacing: -.015em; max-width: 30ch; margin-bottom: 48px; text-wrap: pretty; }
+.statement em { font-family: var(--voice); font-weight: 400; color: var(--gold); letter-spacing: 0; }
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.split > div { border: 1px solid var(--line); border-radius: var(--r); padding: 24px 22px; background: var(--panel); min-width: 0; }
+.split h3 { display: flex; align-items: center; gap: 10px; }
+.split h3::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--ok); }
+.split > div:last-child h3::before { background: var(--arc); }
+.split ul { margin: 14px 0 0; padding: 0; list-style: none; display: grid; gap: 9px; color: var(--muted); font-size: .95rem; }
+@media (max-width: 760px) { .split { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- install */
+.os { display: inline-flex; border: 1px solid var(--line-2); border-radius: 12px; padding: 4px; gap: 4px; background: var(--panel); margin-bottom: 22px; }
+.os button { font: 600 .95rem/1 var(--body); color: var(--muted); background: transparent; border: 0; border-radius: 9px; padding: 11px 18px; cursor: pointer; display: flex; align-items: center; gap: 9px; transition: color .2s, background .25s; }
+.os button[aria-selected="true"] { background: var(--gold); color: var(--on-gold); }
+.install { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); gap: 28px; align-items: start; }
+.cmd { display: flex; align-items: stretch; background: var(--well); border: 1px solid var(--line-2); border-radius: 12px; overflow: hidden; }
+.cmd pre { margin: 0; padding: 16px 18px; overflow-x: auto; font: 400 .92rem/1.5 var(--mono); color: #f4e3bd; flex: 1; min-width: 0; white-space: pre; }
+.cmd pre::before { content: attr(data-prompt) " "; color: var(--faint); }
+.cmd button { border: 0; border-left: 1px solid var(--line-2); background: var(--panel); color: var(--text); font: 500 .82rem/1 var(--mono); padding: 0 16px; cursor: pointer; min-width: 78px; transition: background .2s, color .2s; }
+.cmd button:hover { background: #18212f; color: var(--gold); }
+.steps { margin: 24px 0 0; padding: 0; list-style: none; counter-reset: s; display: grid; gap: 14px; }
+.steps li { counter-increment: s; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 12px; color: var(--muted); }
+.steps li::before { content: counter(s); width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--gold); color: var(--gold); display: grid; place-items: center; font: 500 .82rem/1 var(--mono); }
+.steps b { color: var(--text); font-weight: 600; }
+.or { display: flex; align-items: center; gap: 14px; color: var(--faint); font: 500 .74rem/1 var(--mono); letter-spacing: .16em; margin: 22px 0; }
+.or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.need { border: 1px solid var(--line); border-radius: var(--r); background: var(--panel); padding: 22px; }
+.need dl { margin: 14px 0 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px 16px; font-size: .93rem; }
+.need dt { color: var(--faint); font: 500 .74rem/1.7 var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.need dd { margin: 0; color: var(--muted); }
+.beta { display: inline-block; font: 500 .66rem/1 var(--mono); letter-spacing: .14em; color: var(--arc); border: 1px solid var(--arc); border-radius: 999px; padding: 4px 8px; vertical-align: middle; margin-left: 8px; }
+.install > *, .say > *, .sec > * { min-width: 0; }
+@media (max-width: 900px) { .install { grid-template-columns: minmax(0, 1fr); } }
+.term { margin-top: 34px; background: #04070c; border: 1px solid var(--line-2); border-radius: var(--r); overflow: hidden; }
+.term .bar { display: flex; justify-content: space-between; gap: 12px; padding: 11px 16px; border-bottom: 1px solid var(--line); font: 500 .72rem/1 var(--mono); letter-spacing: .14em; color: var(--muted); text-transform: uppercase; }
+.term .bar b { color: var(--faint); font-weight: 500; }
+.term pre { margin: 0; padding: 18px 20px 22px; font: 400 .82rem/1.62 var(--mono); color: var(--muted); overflow-x: auto; white-space: pre; }
+.term .ln.p { color: #f4e3bd; }
+.term .ln.h { color: var(--arc); }
+.term .ln.a { color: var(--text); }
+.term .ln.ok { color: var(--ok); }
+.term .ln.g { color: var(--gold); }
+.caret { display: inline-block; width: .55em; height: 1.05em; background: var(--gold); vertical-align: -2px; margin-left: 1px; animation: blink .55s steps(1) infinite alternate; }
+
+/* ---------- comparison table */
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r); margin-top: 34px; }
+table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: .93rem; }
+th, td { text-align: left; padding: 12px 16px; border-top: 1px solid var(--line); vertical-align: top; }
+thead th { border-top: 0; font: 500 .72rem/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); background: var(--panel); }
+td:first-child { color: var(--text); }
+td { color: var(--muted); }
+td.y { color: var(--ok); }
+
+/* ---------- faq */
+.faq { display: grid; gap: 10px; max-width: 820px; }
+details { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); transition: border-color .25s; }
+details[open], details:hover { border-color: var(--line-2); }
+summary { cursor: pointer; padding: 16px 20px; font: 600 1.02rem/1.35 var(--display); list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+summary::-webkit-details-marker { display: none; }
+summary::after { content: "+"; color: var(--gold); font: 400 1.3rem/1 var(--mono); transition: transform .35s var(--ease); }
+details[open] summary::after { transform: rotate(45deg); }
+details p { padding: 0 20px 18px; color: var(--muted); max-width: 70ch; }
+@supports (interpolate-size: allow-keywords) {
+  :root { interpolate-size: allow-keywords; }
+  details::details-content { height: 0; overflow: clip; transition: height .45s var(--ease), content-visibility .45s allow-discrete; }
+  details[open]::details-content { height: auto; }
+}
+
+/* ---------- final call */
+.go { position: relative; overflow: hidden; border-bottom: 1px solid var(--line); padding-block: 130px 120px; background: radial-gradient(560px 360px at 50% 55%, rgba(242, 184, 75, .16), transparent 70%), var(--ink); }
+.go .wrap { display: grid; justify-items: center; text-align: center; gap: 18px; position: relative; z-index: 1; }
+.go .eyebrow::before { display: none; }
+.go h2 { font-size: clamp(2.3rem, 6.4vw, 4.8rem); letter-spacing: -.025em; }
+.go h2 em { font-family: var(--voice); font-weight: 400; color: var(--gold); letter-spacing: 0; }
+.go .lede { margin-inline: auto; }
+.go .actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 12px; }
+.go-rings { position: absolute; left: 50%; top: 50%; width: min(760px, 150vw); aspect-ratio: 1; translate: -50% -50%; pointer-events: none; color: var(--gold); }
+.go-rings g { transform-origin: 380px 380px; animation: spin 120s linear infinite; }
+.go-rings g + g { animation-duration: 70s; animation-direction: reverse; }
+
+footer { padding-block: 64px 56px; color: var(--faint); font-size: .86rem; overflow: hidden; }
+footer .wrap { display: grid; gap: 18px; }
+.sign { font: 400 clamp(2.6rem, 9.5vw, 7.6rem)/1 var(--voice); font-style: italic; color: var(--text); letter-spacing: -.01em; margin-bottom: 18px; }
+.sign .ch { display: inline-block; }
+.sign .wd { display: inline-block; white-space: nowrap; overflow: hidden; padding: .02em .08em .12em 0; margin-bottom: -.12em; vertical-align: top; }
+.sign em { color: var(--gold); }
+footer a { color: var(--muted); }
+footer .row { display: flex; flex-wrap: wrap; gap: 8px 22px; }
+footer p { max-width: 90ch; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .mq { overflow-x: auto; }
+  .intro .hero [data-in], .intro .hero h1 .ln > span { opacity: 1; transform: none; }
+}
+</style>
+
+<div id="boot" class="boot" hidden aria-hidden="true">
+  <div class="boot-core"><i></i></div>
+  <pre class="boot-log" id="boot-log"></pre>
+  <p class="boot-skip">Click to skip</p>
+</div>
+<script>try{if(!matchMedia("(prefers-reduced-motion: reduce)").matches){document.documentElement.classList.add("intro");if(!sessionStorage.getItem("jarvis-booted"))document.getElementById("boot").hidden=false}}catch(e){}</script>
+
+<div class="top" id="topbar">
+  <div class="wrap">
+    <a class="brand" href="#top"><i></i>J.A.R.V.I.S.</a>
+    <nav aria-label="Sections">
+      <a href="#how">How it works</a>
+      <a href="#can">Abilities</a>
+      <a href="#day">A day</a>
+      <a href="#security">Security</a>
+      <a href="https://github.com/Ryu10867/jarvis">GitHub</a>
+      <a class="cta" href="#install">Install</a>
+    </nav>
+  </div>
+  <span class="prog" id="prog"></span>
+</div>
+
+<main id="top">
+<section class="hero">
+  <canvas class="field" id="field" aria-hidden="true"></canvas>
+  <div class="wrap lead">
+    <div class="copy">
+      <p class="eyebrow" data-in>Offline voice assistant · Windows and macOS</p>
+      <h1><span class="ln"><span>Say <em>&ldquo;Hey Jarvis.&rdquo;</em></span></span><span class="ln"><span>Your laptop answers.</span></span></h1>
+      <p class="lede" data-in>A voice assistant in the spirit of the films that runs entirely on your own computer. He opens your apps, runs your browser, tracks your deadlines, reads your screen and keeps watch over the laptop. No account, no subscription, no cloud listening in.</p>
+      <div class="actions" data-in>
+        <a class="btn primary" id="dl-main" href="#install">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0-4.5-4.5M12 15l4.5-4.5M4 19h16"/></svg>
+          <span id="dl-main-text">Install Jarvis</span>
+        </a>
+        <a class="btn" href="#say">Hear what he can do</a>
+      </div>
+      <p class="fine" data-in>Free and open source. About 8 GB of disk. A fan project, not affiliated with Marvel.</p>
+    </div>
+    <div class="stage">
+      <div class="orbwrap" data-in>
+        <canvas id="orb" width="920" height="920" role="img" aria-label="Jarvis's orb: a glowing lattice sphere that pulses as he listens, thinks and speaks. Click to hear the next exchange."></canvas>
+        <svg class="hud" id="hud" viewBox="0 0 460 460" aria-hidden="true">
+          <g class="hud-scroll">
+            <g class="hud-spin" fill="none" stroke="currentColor">
+              <circle cx="230" cy="230" r="224" stroke-opacity=".2" stroke-dasharray="2 7"/>
+              <path d="M230 6v12M230 442v12M6 230h12M442 230h12" stroke-opacity=".55"/>
+              <path d="M230 6A224 224 0 0 1 388.4 71.6" stroke-width="2" stroke-opacity=".55"/>
+              <path d="M230 454A224 224 0 0 1 118 424" stroke-width="2" stroke-opacity=".4"/>
+            </g>
+          </g>
+          <text x="10" y="22">WAKE 1.00</text>
+          <text x="450" y="22" text-anchor="end">CLOUD NONE</text>
+        </svg>
+      </div>
+      <div class="caption" data-in aria-live="off">
+        <div class="who" id="cap-who">J.A.R.V.I.S.</div>
+        <div class="said j" id="cap-said">Good evening, sir. Jarvis is online and all systems are operational.</div>
+      </div>
+      <div class="themes" role="group" aria-label="Orb colour" data-in>
+        <span>&ldquo;Jarvis, turn</span>
+        <button type="button" id="th-gold" data-theme="gold" style="--c:#f2b84b" aria-label="gold" aria-pressed="true"></button>
+        <button type="button" id="th-arc" data-theme="arc" style="--c:#5cc8f5" aria-label="blue" aria-pressed="false"></button>
+        <button type="button" id="th-emerald" data-theme="emerald" style="--c:#57d99a" aria-label="green" aria-pressed="false"></button>
+        <button type="button" id="th-violet" data-theme="violet" style="--c:#a98bff" aria-label="purple" aria-pressed="false"></button>
+        <button type="button" id="th-crimson" data-theme="crimson" style="--c:#ff6b6b" aria-label="red" aria-pressed="false"></button>
+        <span id="th-name">gold.&rdquo;</span>
+      </div>
+    </div>
+  </div>
+  <div class="wrap">
+    <div class="facts">
+      <div data-in><b>0.1&ndash;0.4 s</b><span>from the end of your sentence to a common command being done</span></div>
+      <div data-in><b data-count="50">50</b><span>built-in abilities, from &ldquo;new tab&rdquo; to a full security sweep</span></div>
+      <div data-in><b data-count="6">6</b><span>security monitors standing guard on Windows, 3 on a Mac</span></div>
+      <div data-in><b>0</b><span>cloud accounts. Speech, voice and the AI all run on your machine</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="marquee" aria-label="Things you can say to Jarvis">
+  <div class="mq" data-dir="1"><div class="mq-track">
+    <span>&ldquo;Open Chrome&rdquo;</span><span>&ldquo;What&rsquo;s due this week?&rdquo;</span><span>&ldquo;Volume to thirty&rdquo;</span><span>&ldquo;Are we secure?&rdquo;</span><span>&ldquo;Resume my Coursera course&rdquo;</span><span>&ldquo;What&rsquo;s on my screen?&rdquo;</span><span>&ldquo;Work protocol&rdquo;</span><span>&ldquo;Remind me at 5 pm&rdquo;</span><span>&ldquo;Take a screenshot&rdquo;</span>
+  </div></div>
+  <div class="mq alt" data-dir="-1"><div class="mq-track">
+    <span>&ldquo;Play Interstellar main theme&rdquo;</span><span>&ldquo;Scan my network&rdquo;</span><span>&ldquo;How&rsquo;s the battery?&rdquo;</span><span>&ldquo;Check my email&rdquo;</span><span>&ldquo;Stay with me&rdquo;</span><span>&ldquo;Turn blue&rdquo;</span><span>&ldquo;Explain a deadlock like I&rsquo;m five&rdquo;</span><span>&ldquo;Goodnight protocol&rdquo;</span><span>&ldquo;Lock the screen&rdquo;</span>
+  </div></div>
+</section>
+
+<section class="band" id="how">
+  <div class="wrap">
+    <header>
+      <p class="eyebrow">How it works</p>
+      <h2>Five steps between your voice and the result, all of them on your laptop.</h2>
+      <p class="lede">He follows you word by word. The accurate recogniser starts transcribing at your first pause, while you are still talking, so the sentence is already understood the moment you stop.</p>
+    </header>
+    <div class="flow" id="flow">
+      <div class="flow-vis">
+        <div class="vis">
+          <div class="vis-bar"><span>LIVE TRACE</span><b id="vis-step">01 / 05 &middot; WAKE</b></div>
+          <canvas id="wave" aria-hidden="true"></canvas>
+          <ol class="trace" aria-label="Example trace of one command">
+            <li data-s="0"><time>0.00</time><b>wake</b><span>&ldquo;hey jarvis&rdquo; scores 1.00, the orb lights</span></li>
+            <li data-s="0"><time>0.15</time><b>chime</b><span>acknowledged, listening</span></li>
+            <li data-s="1"><time>1.90</time><b>hear</b><span>&ldquo;open chrome and set the volume to thirty&rdquo;</span></li>
+            <li data-s="1"><time>2.25</time><b>endpoint</b><span>0.35 s pause, Whisper text ready</span></li>
+            <li data-s="2"><time>2.26</time><b>route</b><span>reflex: open_app + volume, no model needed</span></li>
+            <li data-s="3"><time>2.28</time><b>act</b><span>Chrome launching, volume set to 30</span></li>
+            <li data-s="4"><time>2.30</time><b>speak</b><span>&ldquo;Chrome coming up. Volume at thirty percent, sir.&rdquo;</span></li>
+          </ol>
+        </div>
+      </div>
+      <ol class="flow-steps">
+        <li class="rail" aria-hidden="true"><i id="rail"></i></li>
+        <li class="fstep"><p class="n">01 &middot; WAKE</p><h3>He knows his name by its sound.</h3><p>A small neural network recognises &ldquo;Hey Jarvis&rdquo; as a sound, so accents don't throw it. The orb lights the instant the phrase ends.</p><p class="t">chime in 0.1&ndash;0.2 s</p></li>
+        <li class="fstep"><p class="n">02 &middot; LISTEN</p><h3>Every word, as you say it.</h3><p>Vosk follows you live and shows your words under the orb. Whisper re-reads each stretch of the sentence at your natural pauses for accuracy.</p><p class="t">text ready as you finish</p></li>
+        <li class="fstep"><p class="n">03 &middot; UNDERSTAND</p><h3>Reflexes first, then a mind.</h3><p>Common commands are matched by instant reflexes. Everything else goes to a language model running locally through Ollama.</p><p class="t">reflex 0.1&ndash;0.4 s &middot; model 1&ndash;2 s</p></li>
+        <li class="fstep"><p class="n">04 &middot; ACT</p><h3>Fifty tools at hand.</h3><p>Apps, windows, browser, volume, files, reminders, screen reading and security. Anything risky asks &ldquo;yes or no&rdquo; first.</p><p class="t">confirmation for anything risky</p></li>
+        <li class="fstep"><p class="n">05 &middot; SPEAK</p><h3>A British voice, sentence by sentence.</h3><p>A neural voice answers while the reply is still being written, and stops mid-word if you say &ldquo;Hey Jarvis&rdquo; over him.</p><p class="t">interruptible</p></li>
+      </ol>
+    </div>
+    <p class="note">An example trace. Timings measured on the developer's laptop (RTX 4050, 6 GB) with the default models. Slower hardware takes longer on the language-model step; the reflexes stay instant.</p>
+  </div>
+</section>
+
+<section class="band deck" id="can">
+  <div class="wrap">
+    <header>
+      <p class="eyebrow">Abilities</p>
+      <h2>A butler for the whole machine.</h2>
+      <p class="lede">The headline abilities first, then every one of his fifty tools.</p>
+    </header>
+    <div class="grid">
+      <article class="cap wide">
+        <p class="k">Deadlines</p>
+        <h3>He reads your calendar and Gmail, and won't let a due date slip.</h3>
+        <p>Link Google Calendar (including Google Classroom) and Gmail once. Jarvis finds every due date, including the ones buried in emails like &ldquo;last date for submission is 25/11&rdquo;, and reminds you 3 days, 1 day, 6 hours and 1 hour before.</p>
+        <ul>
+          <li>Announces new deadlines and new mail in your Primary inbox as they arrive</li>
+          <li>Warns 10 minutes before a calendar event</li>
+          <li>&ldquo;I've submitted the DBMS lab&rdquo; stops the reminders for it</li>
+          <li>Read-only. Nothing is sent, deleted or marked as read</li>
+        </ul>
+      </article>
+      <article class="cap wide">
+        <p class="k">Hands-free computer</p>
+        <h3>Apps, windows, browser, volume, files. By voice, at once.</h3>
+        <p>&ldquo;Open Spotify.&rdquo; &ldquo;New tab.&rdquo; &ldquo;Go back.&rdquo; &ldquo;Scroll down.&rdquo; &ldquo;Volume to thirty.&rdquo; &ldquo;Take a screenshot.&rdquo; &ldquo;Close it.&rdquo; Two commands in one breath work too: &ldquo;open Notepad and set the volume to 20.&rdquo;</p>
+        <ul>
+          <li>Dictation into whatever window has focus</li>
+          <li>Mishears are forgiven: &ldquo;open crow&rdquo; still opens Chrome</li>
+          <li>&ldquo;Again&rdquo; repeats the last action, &ldquo;what did you say?&rdquo; the last reply</li>
+        </ul>
+      </article>
+      <article class="cap"><p class="k">Screen</p><h3>Reads what's on your screen</h3><p>&ldquo;What am I looking at?&rdquo; He captures the screen, reads the text with the system's own offline OCR, and summarises it.</p></article>
+      <article class="cap"><p class="k">Memory</p><h3>Remembers, reminds, takes notes</h3><p>Timers, alarms and reminders that survive a restart. &ldquo;Remember that my project is due on the 20th&rdquo; stays remembered.</p></article>
+      <article class="cap"><p class="k">Learning</p><h3>Gets faster the more you use him</h3><p>A sentence that led to the same action twice becomes an instant shortcut. Say &ldquo;that was wrong&rdquo; and he unlearns it.</p></article>
+      <article class="cap"><p class="k">Protocols</p><h3>One phrase, a whole routine</h3><p>&ldquo;Work protocol&rdquo; opens your editor and browser and sets the volume. Focus, party, clean slate, lockdown and goodnight are built in. Write your own in the settings file.</p></article>
+      <article class="cap"><p class="k">Study</p><h3>Coursera on autopilot</h3><p>&ldquo;Resume my course.&rdquo; He plays each lecture and moves to the next, tracks your progress, and stops at graded items. He never answers or submits anything for you.</p></article>
+      <article class="cap"><p class="k">Presence</p><h3>An orb, not a window</h3><p>On Windows he floats on the desktop as a glowing sphere that listens, thinks and speaks, with live captions. Five colours. He steps aside for full-screen games. On a Mac he is a compact reactor panel.</p></article>
+    </div>
+
+    <div class="all">
+      <div class="all-head">
+        <h3>All fifty, by name</h3>
+        <p><i>&bull;</i> asks for a spoken yes first</p>
+      </div>
+      <div class="groups">
+        <section><h4>System <b>7</b></h4><ul class="chips"><li>Time and date</li><li>System status</li><li>Full diagnostics</li><li>Busiest programs</li><li>Wi-Fi and IP</li><li>Weather</li><li>Screen brightness</li></ul></section>
+        <section><h4>Apps and windows <b>8</b></h4><ul class="chips"><li>Open apps</li><li>Close apps</li><li>Window control</li><li>Scroll</li><li>Keyboard shortcuts</li><li>Dictation</li><li>Clipboard</li><li>Code templates</li></ul></section>
+        <section><h4>Web and media <b>6</b></h4><ul class="chips"><li>Open websites</li><li>Web search</li><li>Play on YouTube</li><li>Media keys</li><li>Volume</li><li>Coursera</li></ul></section>
+        <section><h4>Screen and files <b>7</b></h4><ul class="chips"><li>Screenshot</li><li>Read the screen</li><li>Find files</li><li>Open files and folders</li><li>New folder</li><li class="r">Delete to Recycle Bin</li><li class="r">Empty Recycle Bin</li></ul></section>
+        <section><h4>Memory and time <b>9</b></h4><ul class="chips"><li>Take notes</li><li>Read notes</li><li>Remember facts</li><li>Forget facts</li><li>Reminders, timers, alarms</li><li>List reminders</li><li>Cancel reminders</li><li>Deadlines, Calendar, Gmail</li><li>Calculator</li></ul></section>
+        <section><h4>Security and control <b>13</b></h4><ul class="chips"><li>Security status</li><li>Security sweep</li><li>Scan my network</li><li>Laptop audit</li><li class="r">Scan a lab machine</li><li>CTF helper</li><li>Lock the screen</li><li class="r">Shut down, restart, sleep</li><li class="r">Force-kill a program</li><li class="r">Run a command</li><li>Protocols</li><li>Mute his voice</li><li>Orb control</li></ul></section>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="day" id="day" aria-labelledby="day-h">
+  <div class="day-pin">
+    <div class="wrap">
+      <div class="day-head">
+        <div class="txt">
+          <p class="eyebrow">A day with Jarvis</p>
+          <h2 id="day-h">From the first coffee to lights out.</h2>
+          <p class="lede">Seven moments from an ordinary student day. Some he answers, some he raises himself.</p>
+        </div>
+        <div class="day-clock" aria-hidden="true"><small>Local time</small><b id="day-clock">07:40</b></div>
+      </div>
+      <div class="day-bar" aria-hidden="true"><i id="day-bar"></i></div>
+    </div>
+    <div class="day-track" id="day-track" tabindex="0" aria-label="Seven moments, scroll sideways">
+      <article class="scene" data-time="07:40">
+        <header><time>07:40</time><span class="k">Morning</span></header>
+        <div class="ex"><p class="j"><span class="tag">J.A.R.V.I.S.</span>Good morning, sir. Three deadlines this week. DBMS Lab 5 is due tomorrow at 11:59 PM.</p></div>
+        <p class="what">His greeting includes what's due, read from your Calendar, Classroom and Gmail.</p>
+      </article>
+      <article class="scene" data-time="09:10">
+        <header><time>09:10</time><span class="k">At the desk</span></header>
+        <div class="ex"><p><span class="tag">YOU</span>Work protocol.</p><p class="j"><span class="tag">J.A.R.V.I.S.</span>Work protocol engaged. Your workspace is ready, sir.</p></div>
+        <p class="what">Opens VS Code and Chrome and sets the volume to 30. Every protocol is yours to edit.</p>
+      </article>
+      <article class="scene" data-time="11:25">
+        <header><time>11:25</time><span class="k">Lectures</span></header>
+        <div class="ex"><p><span class="tag">YOU</span>Resume my Coursera course.</p><p class="j"><span class="tag">J.A.R.V.I.S.</span>Resuming your course, sir.</p></div>
+        <p class="what">Plays each lecture and moves on to the next. Stops at graded items and never answers anything for you.</p>
+      </article>
+      <article class="scene" data-time="13:05">
+        <header><time>13:05</time><span class="k">Away at lunch</span></header>
+        <div class="ex"><p class="ev"><span class="tag">FACE GUARD</span>Unknown face at the keyboard. Screen locked, photo saved to Jarvis Intruders.</p></div>
+        <p class="what">He knows your face. Anyone else is photographed and locked out, and you are welcomed back when you return.</p>
+      </article>
+      <article class="scene" data-time="16:30">
+        <header><time>16:30</time><span class="k">Studying</span></header>
+        <div class="ex"><p><span class="tag">YOU</span>What's on my screen?</p><p class="j"><span class="tag">J.A.R.V.I.S.</span>A page on deadlocks, sir: the four Coffman conditions, and how breaking any one of them prevents a deadlock.</p></div>
+        <p class="what">Reads the screen with the system's own offline OCR, then summarises it with the local model.</p>
+      </article>
+      <article class="scene" data-time="22:59">
+        <header><time>22:59</time><span class="k">One hour left</span></header>
+        <div class="ex"><p class="j"><span class="tag">J.A.R.V.I.S.</span>Sir, a reminder: DBMS Lab 5 is due in about an hour.</p><p><span class="tag">YOU</span>I've submitted the DBMS lab.</p><p class="j"><span class="tag">J.A.R.V.I.S.</span>Marked DBMS Lab 5 as done, sir. No more reminders about it.</p></div>
+        <p class="what">Reminders 3 days, 1 day, 6 hours and 1 hour before every deadline.</p>
+      </article>
+      <article class="scene" data-time="23:40">
+        <header><time>23:40</time><span class="k">Lights out</span></header>
+        <div class="ex"><p><span class="tag">YOU</span>Goodnight protocol.</p><p class="j"><span class="tag">J.A.R.V.I.S.</span>Goodnight, sir. I'll keep watch.</p></div>
+        <p class="what">Pauses the music, mutes and locks the screen. The security monitors stay on all night.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="band deck" id="say">
+  <div class="wrap">
+    <header>
+      <p class="eyebrow">What to say</p>
+      <h2>Pick a sentence. This is what he says back.</h2>
+      <p class="lede">After every answer he keeps listening for a few seconds, so follow-ups need no wake word. Say &ldquo;stay with me&rdquo; for a longer conversation and &ldquo;that's all&rdquo; to end it. The replies here are examples of his wording.</p>
+    </header>
+    <div class="say">
+      <div>
+        <div class="tabs" role="tablist" aria-label="Kinds of command" id="tabs"></div>
+        <div class="phrases" id="phrases"></div>
+      </div>
+      <div class="console" id="console" data-state="idle">
+        <div class="bar"><span class="dot"></span><span id="con-state">STANDING BY</span></div>
+        <div class="body">
+          <div class="line"><div class="tag">YOU</div><p id="con-you">Hey Jarvis, open Chrome.</p></div>
+          <div class="line j"><div class="tag">J.A.R.V.I.S.</div><p id="con-j">Chrome coming up.</p></div>
+          <div class="how" id="con-how"><b>Instant reflex.</b> Matched without the language model.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="security">
+  <div class="wrap">
+    <div class="sec">
+      <div>
+        <header>
+          <p class="eyebrow">Security grid</p>
+          <h2>He also keeps watch.</h2>
+          <p class="lede">While he waits for your voice, a set of monitors runs quietly in the background and speaks up when something looks wrong.</p>
+        </header>
+        <div class="radar-box">
+          <canvas id="radar" aria-hidden="true"></canvas>
+          <p><b>ALL CLEAR</b>Face, files, network, processes, USB and sign-ins, watched continuously on Windows.</p>
+        </div>
+        <div class="rule">
+          <p class="voice">&ldquo;Shall I shut down the computer, sir? Yes or no.&rdquo;</p>
+          <p>Risky actions (power, delete, force-kill, shell commands) always ask first. If Face guard sees a stranger at the keyboard, they are refused outright.</p>
+          <p>The security tools only ever point at your own machine and your own network.</p>
+        </div>
+      </div>
+      <div class="monitors">
+        <div><b>Face guard</b><span>Knows your face. An unknown one gets photographed and the screen locks. Welcomes you back when you return.</span><i class="both">WIN · MAC</i></div>
+        <div><b>File watch</b><span>Mass changes or ransomware file extensions in Documents, Desktop and Pictures.</span><i class="both">WIN · MAC</i></div>
+        <div><b>Network watch</b><span>Connections to backdoor ports, and unsigned programs that start listening.</span><i class="both">WIN · MAC</i></div>
+        <div><b>Process watch</b><span>Malware-style behaviour: hidden or encoded PowerShell, backup deletion, antivirus being switched off.</span><i>WINDOWS</i></div>
+        <div><b>USB watch</b><span>New drives, and keyboards that appear from nowhere.</span><i>WINDOWS</i></div>
+        <div><b>Login watch</b><span>Failed sign-in attempts, with a webcam photo of whoever tried.</span><i>WINDOWS</i></div>
+        <div><b>Sweep and audit</b><span>&ldquo;Are we secure?&rdquo; checks running programs, open ports, firewall and disk encryption on demand.</span><i class="both">WIN · MAC</i></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band deck" id="privacy">
+  <div class="wrap">
+    <header>
+      <p class="eyebrow">Privacy</p>
+      <h2>Your voice never leaves the room.</h2>
+    </header>
+    <p class="statement" id="statement">The wake word, your speech, his voice, the language model, your face and your notes all stay on this laptop. There is no Jarvis server, so there is <em>nothing to send.</em></p>
+    <div class="split">
+      <div>
+        <h3>Stays on your computer</h3>
+        <ul>
+          <li>Wake word, speech recognition and the voice</li>
+          <li>The language model and every conversation with it</li>
+          <li>Your face enrolment and any intruder photos</li>
+          <li>Notes, reminders, memory and logs</li>
+          <li>Gmail and calendar sign-in, encrypted for your account only</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Uses the internet only when you ask</h3>
+        <ul>
+          <li>The one-time download of models during setup</li>
+          <li>Weather, web search and &ldquo;play it on YouTube&rdquo;</li>
+          <li>Gmail and Google Calendar, if you link them, straight from your laptop to Google</li>
+          <li>Unplug the network and the rest keeps working</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="install">
+  <div class="wrap">
+    <header>
+      <p class="eyebrow">Install</p>
+      <h2>One line, a few questions, and he's online.</h2>
+      <p class="lede">The installer sets up a private Python environment, downloads the speech models, and offers to install Ollama and the language model. Nothing is installed system-wide.</p>
+    </header>
+    <div class="os" role="tablist" aria-label="Operating system">
+      <button type="button" role="tab" id="os-win" aria-selected="true" aria-controls="pane-win">Windows</button>
+      <button type="button" role="tab" id="os-mac" aria-selected="false" aria-controls="pane-mac">macOS</button>
+    </div>
+
+    <div class="install" id="pane-win" role="tabpanel" aria-labelledby="os-win">
+      <div>
+        <div class="cmd"><pre data-prompt="PS&gt;" id="cmd-win">irm https://ryu10867.github.io/jarvis/install.ps1 | iex</pre><button type="button" id="copy-win" data-copy="cmd-win">Copy</button></div>
+        <ol class="steps">
+          <li><span>Open <b>PowerShell</b> (press <kbd>Win</kbd>, type <i>powershell</i>, Enter).</span></li>
+          <li><span>Paste the line above and press Enter.</span></li>
+          <li><span>Answer three questions: <b>your name</b>, <b>which brain</b>, and whether to download it now.</span></li>
+          <li><span>Double-click <b>Jarvis</b> on the Desktop and say <b>&ldquo;Hey Jarvis&rdquo;</b>.</span></li>
+        </ol>
+        <div class="or">OR</div>
+        <a class="btn" id="zip-win" href="https://github.com/Ryu10867/jarvis/releases/latest/download/Jarvis-Installer-Windows.zip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0-4.5-4.5M12 15l4.5-4.5M4 19h16"/></svg>
+          <span>Download the installer zip<br><small>unzip, then double-click install.bat</small></span>
+        </a>
+      </div>
+      <aside class="need">
+        <h3>What you need</h3>
+        <dl>
+          <dt>System</dt><dd>Windows 10 or 11</dd>
+          <dt>Audio</dt><dd>A microphone and speakers</dd>
+          <dt>Disk</dt><dd>About 8 GB (the AI model is 2&ndash;5 GB)</dd>
+          <dt>Best with</dt><dd>An NVIDIA GPU with 6 GB or more. Without one, pick the lighter brain during setup</dd>
+          <dt>Internet</dt><dd>Only for the one-time setup downloads</dd>
+        </dl>
+      </aside>
+    </div>
+
+    <div class="install" id="pane-mac" role="tabpanel" aria-labelledby="os-mac" hidden>
+      <div>
+        <div class="cmd"><pre data-prompt="$" id="cmd-mac">curl -fsSL https://ryu10867.github.io/jarvis/install.sh | bash</pre><button type="button" id="copy-mac" data-copy="cmd-mac">Copy</button></div>
+        <ol class="steps">
+          <li><span>Open <b>Terminal</b> (press <kbd>Cmd</kbd> <kbd>Space</kbd>, type <i>terminal</i>, Enter).</span></li>
+          <li><span>Paste the line above and press Enter. No password is asked for.</span></li>
+          <li><span>Answer the same three questions.</span></li>
+          <li><span>Double-click <b>Jarvis</b> on the Desktop. Say yes when macOS asks to let Terminal use the <b>microphone</b>.</span></li>
+        </ol>
+        <div class="or">OR</div>
+        <a class="btn" id="zip-mac" href="https://github.com/Ryu10867/jarvis/releases/latest/download/Jarvis-Installer-macOS.zip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0-4.5-4.5M12 15l4.5-4.5M4 19h16"/></svg>
+          <span>Download the installer zip<br><small>unzip, right-click &ldquo;Install Jarvis.command&rdquo; &gt; Open</small></span>
+        </a>
+      </div>
+      <aside class="need">
+        <h3>What you need <span class="beta">BETA</span></h3>
+        <dl>
+          <dt>System</dt><dd>macOS 12 or newer</dd>
+          <dt>Best with</dt><dd>Apple silicon (M1 or later). Intel Macs work with the lighter brain</dd>
+          <dt>Disk</dt><dd>About 8 GB</dd>
+          <dt>Permissions</dt><dd>macOS asks once each for Microphone, Accessibility, Screen Recording and Camera, as he needs them</dd>
+          <dt>Status</dt><dd>The Mac version is new. See below for what differs from Windows</dd>
+        </dl>
+      </aside>
+    </div>
+
+    <div class="term" id="term">
+      <div class="bar"><span id="term-title">Windows PowerShell</span><b>Setup, abridged</b></div>
+<pre id="term-pre"><span class="ln p" data-from="4">PS&gt; irm https://ryu10867.github.io/jarvis/install.ps1 | iex</span>
+<span class="ln g">  J.A.R.V.I.S. installer</span>
+<span class="ln">Downloading Jarvis...</span>
+<span class="ln">Creating Jarvis's Python environment...</span>
+<span class="ln">Installing Jarvis and its libraries (this can take a few minutes)...</span>
+<span class="ln ok">Jarvis is installed. Starting first-time setup...</span>
+<span class="ln h">=== [1/5] Your name =======================================</span>
+<span class="ln a" data-from="35">What should Jarvis call you? [sir] Tony</span>
+<span class="ln h">=== [2/5] Brain (local language model via Ollama) =========</span>
+<span class="ln">  1) qwen2.5:7b   best answers; wants a 6 GB+ NVIDIA GPU, an Apple-silicon Mac, or 16 GB RAM</span>
+<span class="ln">  2) qwen2.5:3b   lighter and faster on laptops without a big GPU</span>
+<span class="ln a" data-from="19">Choose 1 or 2: [1] 1</span>
+<span class="ln h">=== [3/5] Speech, voice, face and wake-word models (~250 MB)</span>
+<span class="ln">  ...</span>
+<span class="ln h">=== [4/5] Ollama ==========================================</span>
+<span class="ln a" data-from="41">  Download qwen2.5:7b now? (large) (Y/n) y</span>
+<span class="ln h">=== [5/5] Face guard (optional) ===========================</span>
+<span class="ln a" data-from="48">  Enrol your face now? (opens the webcam) (y/N) y</span>
+<span class="ln ok">Setup finished.</span>
+<span class="ln g">All done. Double-click 'Jarvis' on the Desktop, or type  jarvis  in a new terminal.</span></pre>
+    </div>
+    <template id="term-mac"><span class="ln p" data-from="2">$ curl -fsSL https://ryu10867.github.io/jarvis/install.sh | bash</span>
+<span class="ln g">  J.A.R.V.I.S. installer</span>
+<span class="ln">Downloading Jarvis...</span>
+<span class="ln">Getting Python 3.12 (a private copy, through the uv tool; your system is not changed)...</span>
+<span class="ln">Creating Jarvis's Python environment...</span>
+<span class="ln">Installing Jarvis and its libraries (this can take a few minutes)...</span>
+<span class="ln h">=== [1/5] Your name =======================================</span>
+<span class="ln a" data-from="35">What should Jarvis call you? [sir] Tony</span>
+<span class="ln h">=== [2/5] Brain (local language model via Ollama) =========</span>
+<span class="ln a" data-from="19">Choose 1 or 2: [1] 1</span>
+<span class="ln h">=== [3/5] Speech, voice, face and wake-word models (~250 MB)</span>
+<span class="ln">  ...</span>
+<span class="ln h">=== [4/5] Ollama ==========================================</span>
+<span class="ln">  macOS will ask for a few permissions the first time each is needed.</span>
+<span class="ln h">=== [5/5] Face guard (optional) ===========================</span>
+<span class="ln ok">Setup finished.</span>
+<span class="ln g">The first time, macOS will ask to let Terminal use the microphone: say yes, or Jarvis can't hear you.</span></template>
+
+    <div class="tbl" role="region" aria-label="Windows and macOS compared" tabindex="0">
+      <table>
+        <thead><tr><th>Feature</th><th>Windows</th><th>macOS (beta)</th></tr></thead>
+        <tbody>
+          <tr><td>Wake word, speech, voice, language model</td><td class="y">Yes</td><td class="y">Yes</td></tr>
+          <tr><td>Apps, windows, browser, volume, typing, files</td><td class="y">Yes</td><td class="y">Yes, with Mac shortcuts (new tab is Cmd+T)</td></tr>
+          <tr><td>Deadlines, calendar and Gmail</td><td class="y">Yes</td><td class="y">Yes (sign-in kept in the Keychain)</td></tr>
+          <tr><td>Reading the screen</td><td class="y">Windows OCR</td><td class="y">Apple Vision</td></tr>
+          <tr><td>How he appears</td><td class="y">Floating orb, or the panel</td><td>Reactor panel window</td></tr>
+          <tr><td>Global push-to-talk key</td><td class="y">Ctrl+Alt+J</td><td>Not yet. Wake word or the Talk button</td></tr>
+          <tr><td>Security monitors</td><td class="y">All six</td><td>Face guard, Network watch, File watch</td></tr>
+          <tr><td>Security sweep and audit</td><td class="y">Defender, firewall, ports, startup</td><td class="y">Firewall, FileVault, Gatekeeper, SIP, ports</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="band deck" id="faq">
+  <div class="wrap">
+    <header>
+      <p class="eyebrow">Questions</p>
+      <h2>Before you install.</h2>
+    </header>
+    <div class="faq">
+      <details><summary>Is it really offline?</summary><p>Yes. Speech recognition, the voice and the language model all run on your computer, and they keep working with the network unplugged. The internet is used for the first-time model downloads, and afterwards only for things that are online by nature: weather, web search, YouTube, and Gmail or Calendar if you choose to link them.</p></details>
+      <details><summary>Will it run on my laptop?</summary><p>Voice control and the instant commands run on almost any recent laptop. The language model is the heavy part. With an NVIDIA GPU of 6 GB or more, or an Apple-silicon Mac, replies take one to two seconds. Without one, choose the lighter brain during setup; open-ended questions will be slower but commands stay instant.</p></details>
+      <details><summary>Does he understand my accent?</summary><p>He was built and tuned by a speaker of Indian English. &ldquo;Hey Jarvis&rdquo; is detected by sound rather than spelling, two recognisers cross-check each other, and <code>jarvis train-wake</code> teaches him how you say his name. For other languages, set <code>whisper_language = ""</code> in the settings and Whisper will detect what you speak.</p></details>
+      <details><summary>Can he do something dangerous by mistake?</summary><p>Anything risky asks for a spoken yes first: shutting down, deleting, force-killing a program, running a shell command. Deleted files go to the Recycle Bin or Trash, not into the void. Closing an app is done the polite way, so the app itself asks about unsaved work.</p></details>
+      <details><summary>My computer warned me about the installer. Is that normal?</summary><p>Yes. Jarvis is a free project without a paid code-signing certificate, so Windows and macOS treat the installer as an unknown app. The one-line install in PowerShell or Terminal avoids the warning. With the zip on Windows, choose <i>More info</i> and then <i>Run anyway</i> if a warning appears; on a Mac, right-click <i>Install Jarvis.command</i> and choose <i>Open</i>. Every line of the installer can be read on GitHub.</p></details>
+      <details><summary>How do I remove it?</summary><p>Run <code>uninstall.bat</code> on Windows or <code>Uninstall Jarvis.command</code> on a Mac, both in the installer zip. It removes the program and asks whether to also delete your settings, models and face data.</p></details>
+      <details><summary>Is this an official Marvel product?</summary><p>No. This is an independent, open-source fan project inspired by the assistant in the Iron Man films. It is not affiliated with or endorsed by Marvel or Disney. It is free, for personal use.</p></details>
+    </div>
+  </div>
+</section>
+
+<section class="go" id="go">
+  <svg class="go-rings" viewBox="0 0 760 760" aria-hidden="true" fill="none" stroke="currentColor">
+    <g><circle cx="380" cy="380" r="372" stroke-opacity=".14" stroke-dasharray="2 9"/><path d="M380 8A372 372 0 0 1 643 117" stroke-opacity=".4" stroke-width="2"/></g>
+    <g><circle cx="380" cy="380" r="300" stroke-opacity=".1"/><path d="M80 380A300 300 0 0 1 168 168" stroke-opacity=".35" stroke-width="2"/><circle cx="380" cy="380" r="230" stroke-opacity=".08" stroke-dasharray="1 5"/></g>
+  </svg>
+  <div class="wrap">
+    <p class="eyebrow">Ready when you are</p>
+    <h2>All systems ready, <em>sir.</em></h2>
+    <p class="lede">Free, open source, and one line to install on Windows or a Mac.</p>
+    <div class="actions">
+      <a class="btn primary" href="#install"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0-4.5-4.5M12 15l4.5-4.5M4 19h16"/></svg><span id="go-text">Install Jarvis</span></a>
+      <a class="btn" href="https://github.com/Ryu10867/jarvis">Read the source</a>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p class="sign" id="sign">For you, sir, <em>always.</em></p>
+    <div class="row">
+      <a href="https://github.com/Ryu10867/jarvis">Source on GitHub</a>
+      <a href="https://github.com/Ryu10867/jarvis/releases/latest">Latest release</a>
+      <a href="https://github.com/Ryu10867/jarvis/issues">Report a problem</a>
+    </div>
+    <p>Built on Vosk, Whisper (onnx-asr), Piper, OpenCV, openWakeWord and Ollama with Qwen 2.5. The &ldquo;Hey Jarvis&rdquo; wake-word model is CC BY-NC-SA 4.0: personal, non-commercial use only. It is downloaded to your computer during setup.</p>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script>
+(function () {
+  "use strict";
+  var root = document.documentElement;
+  var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var fine = window.matchMedia && matchMedia("(hover: hover) and (pointer: fine)").matches;
+  var $ = function (id) { return document.getElementById(id); };
+  var all = function (sel, el) { return [].slice.call((el || document).querySelectorAll(sel)); };
+  var G = (!reduce && window.gsap && window.ScrollTrigger) ? window.gsap : null;
+  if (G) G.registerPlugin(ScrollTrigger);
+  var IO = "IntersectionObserver" in window;
+  function rgba(c, a) { return "rgba(" + c[0] + "," + c[1] + "," + c[2] + "," + Math.max(0, Math.min(1, a)).toFixed(3) + ")"; }
+  function dpr() { return Math.min(2, window.devicePixelRatio || 1); }
+  var GOLD = [242, 184, 75], HOT = [255, 240, 205], ARC = [92, 200, 245], OKC = [111, 214, 160], MUTE = [141, 154, 174];
+
+  /* ------------------------------------------------------------------ smooth scrolling */
+  var lenis = null;
+  if (!reduce && window.Lenis) {
+    try {
+      lenis = new Lenis({ lerp: 0.085, smoothWheel: true });
+      if (G) { lenis.on("scroll", ScrollTrigger.update); G.ticker.add(function (t) { lenis.raf(t * 1000); }); G.ticker.lagSmoothing(0); }
+      else { var lraf = function (t) { lenis.raf(t); requestAnimationFrame(lraf); }; requestAnimationFrame(lraf); }
+    } catch (e) { lenis = null; }
+  }
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest && e.target.closest('a[href^="#"]');
+    if (!a) return;
+    var id = a.getAttribute("href"), el = id === "#top" ? null : document.querySelector(id);
+    if (id !== "#top" && !el) return;
+    e.preventDefault();
+    if (lenis) lenis.scrollTo(el || 0, { offset: el ? -64 : 0, duration: 1.5 });
+    else if (el) el.scrollIntoView({ behavior: reduce ? "auto" : "smooth" });
+    else window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+    try { history.replaceState(null, "", id); } catch (err) {}
+  });
+
+  /* ------------------------------------------------------------------ header: progress, hide on the way down, active section */
+  var topbar = $("topbar"), prog = $("prog"), lastY = window.scrollY;
+  function onScroll() {
+    var y = window.scrollY, max = root.scrollHeight - innerHeight;
+    prog.style.transform = "scaleX(" + (max > 0 ? Math.min(1, y / max) : 0).toFixed(4) + ")";
+    if (y < 500) topbar.classList.remove("hide");
+    else if (y - lastY > 10) topbar.classList.add("hide");
+    else if (lastY - y > 10) topbar.classList.remove("hide");
+    if (Math.abs(y - lastY) > 10) lastY = y;
+  }
+  window.addEventListener("scroll", onScroll, { passive: true });
+  topbar.addEventListener("focusin", function () { topbar.classList.remove("hide"); });
+  onScroll();
+  if (IO) {
+    var navLinks = all('.top nav a[href^="#"]');
+    var navIO = new IntersectionObserver(function (en) {
+      en.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        navLinks.forEach(function (a) { if (a.getAttribute("href") === "#" + e.target.id) a.setAttribute("aria-current", "true"); else a.removeAttribute("aria-current"); });
+      });
+    }, { rootMargin: "-45% 0px -50% 0px" });
+    ["how", "can", "day", "say", "security", "privacy", "install", "faq"].forEach(function (id) { if ($(id)) navIO.observe($(id)); });
+  }
+
+  /* ------------------------------------------------------------------ one animation loop for every canvas, each runs only while on screen */
+  var actors = [], looping = false, lastT = 0, clockT = 0;
+  function actor(el, fn) {
+    var a = { el: el, fn: fn, on: !IO };
+    actors.push(a);
+    if (IO) new IntersectionObserver(function (en) { a.on = en[en.length - 1].isIntersecting; kick(); }, { rootMargin: "80px" }).observe(el);
+    return a;
+  }
+  function kick() {
+    if (reduce || looping || document.hidden || !actors.some(function (a) { return a.on; })) return;
+    looping = true; lastT = performance.now(); requestAnimationFrame(loop);
+  }
+  function loop(ts) {
+    var dt = Math.min(.05, (ts - lastT) / 1000 || .016), any = false;
+    lastT = ts; clockT += dt;
+    actors.forEach(function (a) { if (a.on) { a.fn(dt, clockT); any = true; } });
+    if (any && !document.hidden) requestAnimationFrame(loop); else looping = false;
+  }
+  document.addEventListener("visibilitychange", kick);
+  function fit(cv) {
+    var d = dpr(), w = Math.round(cv.clientWidth * d), h = Math.round(cv.clientHeight * d);
+    if (w && h && (cv.width !== w || cv.height !== h)) { cv.width = w; cv.height = h; }
+  }
+
+  /* ------------------------------------------------------------------ the orb */
+  var THEMES = {
+    gold: [[255, 196, 92], [255, 240, 205]], arc: [[92, 200, 245], [215, 244, 255]],
+    emerald: [[87, 217, 154], [214, 255, 234]], violet: [[169, 139, 255], [234, 224, 255]],
+    crimson: [[255, 107, 107], [255, 222, 216]]
+  };
+  var NAMES = { gold: "gold", arc: "blue", emerald: "green", violet: "purple", crimson: "red" };
+  var canvas = $("orb"), ctx = canvas.getContext("2d"), hud = $("hud");
+  var orb = { theme: "gold", state: "idle", level: 0, spin: 0, energy: 0, t: 0 };
+  var N = 190, pts = [], edges = [];
+  (function build() {
+    var golden = Math.PI * (3 - Math.sqrt(5));
+    for (var i = 0; i < N; i++) {
+      var y = 1 - (i / (N - 1)) * 2, r = Math.sqrt(1 - y * y), a = golden * i;
+      pts.push([Math.cos(a) * r, y, Math.sin(a) * r]);
+    }
+    for (var p = 0; p < N; p++) {                 /* each point joins its three nearest neighbours: a lattice */
+      var near = [];
+      for (var k = 0; k < N; k++) {
+        if (k === p) continue;
+        var dx = pts[p][0] - pts[k][0], dy = pts[p][1] - pts[k][1], dz = pts[p][2] - pts[k][2];
+        near.push([dx * dx + dy * dy + dz * dz, k]);
+      }
+      near.sort(function (m, n) { return m[0] - n[0]; });
+      for (var e = 0; e < 3; e++) if (near[e][1] > p || e === 0) edges.push([p, near[e][1]]);
+    }
+  })();
+
+  function drawOrb(dt) {
+    var W = canvas.width, C = W / 2, th = THEMES[orb.theme], main = th[0], hot = th[1];
+    orb.t += dt;
+    var target = { idle: .16, listening: .5, thinking: 1, speaking: .62 }[orb.state];
+    orb.energy += (target - orb.energy) * Math.min(1, dt * 4);
+    orb.spin += dt * (.16 + orb.energy * (orb.state === "thinking" ? 1.5 : .5));
+    var voice = orb.state === "speaking" ? orb.level : 0;
+    var breathe = Math.sin(orb.t * 1.3) * .012 + (orb.state === "listening" ? Math.sin(orb.t * 5) * .012 : 0);
+    var R = W * .285 * (1 + breathe + voice * .07);
+    ctx.clearRect(0, 0, W, W);
+
+    var halo = ctx.createRadialGradient(C, C, R * .2, C, C, R * 1.65);
+    halo.addColorStop(0, rgba(main, .2 + orb.energy * .16 + voice * .2));
+    halo.addColorStop(.45, rgba(main, .07 + orb.energy * .05));
+    halo.addColorStop(1, rgba(main, 0));
+    ctx.fillStyle = halo; ctx.fillRect(0, 0, W, W);
+
+    var glass = ctx.createRadialGradient(C - R * .3, C - R * .35, R * .05, C, C, R * 1.02);
+    glass.addColorStop(0, "rgba(34,44,62,.9)"); glass.addColorStop(.7, "rgba(9,13,22,.94)"); glass.addColorStop(1, "rgba(4,6,11,.9)");
+    ctx.beginPath(); ctx.arc(C, C, R * 1.01, 0, 7); ctx.fillStyle = glass; ctx.fill();
+
+    var ca = Math.cos(orb.spin), sa = Math.sin(orb.spin), tilt = .42 + Math.sin(orb.t * .23) * .12, ct = Math.cos(tilt), st = Math.sin(tilt);
+    var P = new Array(N);
+    for (var i = 0; i < N; i++) {
+      var p = pts[i], wob = 1 + voice * .09 * Math.sin(orb.t * 11 + i * 1.7) + orb.energy * .012 * Math.sin(orb.t * 3 + i);
+      var x = p[0] * ca + p[2] * sa, z = -p[0] * sa + p[2] * ca, y = p[1] * ct - z * st; z = p[1] * st + z * ct;
+      var s = 1 / (1.9 - z * .55) * 1.9 / 1.35;
+      P[i] = [C + x * R * wob * s, C + y * R * wob * s, z];
+    }
+    ctx.lineWidth = W / 620;
+    for (var e = 0; e < edges.length; e++) {
+      var a = P[edges[e][0]], b = P[edges[e][1]], depth = (a[2] + b[2]) / 2;
+      var al = (depth > 0 ? .16 + depth * .5 : .05 + (depth + 1) * .09) * (.55 + orb.energy * .6);
+      ctx.strokeStyle = rgba(main, Math.min(.9, al));
+      ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+    }
+    for (var j = 0; j < N; j++) {
+      var q = P[j];
+      if (q[2] < -.15) continue;
+      var tw = .5 + .5 * Math.sin(orb.t * 2.2 + j * 2.4);
+      ctx.fillStyle = rgba(hot, Math.min(1, (.3 + q[2] * .6) * (.6 + tw * .4 + orb.energy * .3)));
+      ctx.beginPath(); ctx.arc(q[0], q[1], W / 420 * (1 + q[2] * .9 + voice), 0, 7); ctx.fill();
+    }
+    var core = ctx.createRadialGradient(C, C, 0, C, C, R * (.5 + voice * .25));
+    core.addColorStop(0, rgba(hot, .5 + orb.energy * .3 + voice * .2)); core.addColorStop(.35, rgba(main, .2 + orb.energy * .12)); core.addColorStop(1, rgba(main, 0));
+    ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = core; ctx.fillRect(C - R, C - R, R * 2, R * 2);
+
+    ctx.lineCap = "round";                          /* rings: slow when idle, sweeping while he thinks */
+    for (var r = 0; r < 3; r++) {
+      var rr = R * (1.13 + r * .085), sp = (r % 2 ? -1 : 1) * (.25 + r * .12) * (orb.state === "thinking" ? 4.2 : 1);
+      var st0 = orb.t * sp + r * 2.1, len = orb.state === "thinking" ? 1.1 : (orb.state === "listening" ? 2.4 : .7 + r * .3);
+      ctx.strokeStyle = rgba(main, (.3 - r * .07) * (.5 + orb.energy));
+      ctx.lineWidth = W / (360 + r * 140);
+      ctx.beginPath(); ctx.arc(C, C, rr, st0, st0 + len); ctx.stroke();
+      ctx.beginPath(); ctx.arc(C, C, rr, st0 + Math.PI, st0 + Math.PI + len * .55); ctx.stroke();
+    }
+    ctx.globalCompositeOperation = "source-over";
+  }
+  actor(canvas, function (dt, t) {
+    if (orb.state === "speaking") orb.level += ((.35 + .65 * Math.abs(Math.sin(t * 11) * Math.sin(t * 4.3))) - orb.level) * .3;
+    else orb.level *= .85;
+    drawOrb(dt);
+  });
+  drawOrb(.016);                                     /* a complete still frame before anything animates */
+
+  all(".themes button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      orb.theme = b.dataset.theme;
+      all(".themes button").forEach(function (o) { o.setAttribute("aria-pressed", o === b ? "true" : "false"); });
+      $("th-name").textContent = NAMES[orb.theme] + ".”";
+      hud.style.color = "rgb(" + THEMES[orb.theme][0].join(",") + ")";
+      if (reduce) drawOrb(.016);
+      play({ you: "Hey Jarvis, turn " + NAMES[orb.theme] + ".", j: NAMES[orb.theme].charAt(0).toUpperCase() + NAMES[orb.theme].slice(1) + " it is, sir." }, true);
+    });
+  });
+
+  /* ------------------------------------------------------------------ hero dust: drifts, and moves at its own depth as you scroll */
+  var field = $("field"), fctx = field.getContext("2d"), motes = [], mouseX = 0, mouseY = 0;
+  function seedField() {
+    motes = [];
+    var n = innerWidth < 700 ? 38 : 85;
+    for (var i = 0; i < n; i++) motes.push({ x: Math.random(), y: Math.random(), z: .15 + Math.random() * .85, s: Math.random() * 6.3, blue: Math.random() < .22 });
+  }
+  function drawField(dt, t) {
+    var W = field.width, H = field.height, d = dpr(), sy = window.scrollY * d;
+    fctx.clearRect(0, 0, W, H);
+    for (var i = 0; i < motes.length; i++) {
+      var m = motes[i];
+      var px = (((m.x + t * .004 * m.z + mouseX * .018 * m.z) % 1) + 1) % 1 * W;
+      var py = ((((m.y * H - t * 6 * d * m.z - sy * .45 * m.z + mouseY * 14 * d * m.z) % H) + H) % H);
+      var a = (.12 + .55 * m.z) * (.55 + .45 * Math.sin(t * 1.4 + m.s));
+      fctx.fillStyle = rgba(m.blue ? ARC : [255, 214, 150], a);
+      fctx.beginPath(); fctx.arc(px, py, (.6 + m.z * 1.5) * d, 0, 7); fctx.fill();
+    }
+  }
+  seedField(); fit(field); drawField(0, 0);
+  actor(field, drawField);
+  if (fine) window.addEventListener("pointermove", function (e) { mouseX = e.clientX / innerWidth - .5; mouseY = e.clientY / innerHeight - .5; }, { passive: true });
+
+  /* ------------------------------------------------------------------ hero conversation (sample exchanges) */
+  function clock() {
+    var d = new Date(), h = d.getHours() % 12 || 12, m = ("0" + d.getMinutes()).slice(-2);
+    return h + ":" + m + " " + (d.getHours() < 12 ? "AM" : "PM");
+  }
+  function partOfDay() { var h = new Date().getHours(); return h < 5 ? "evening" : h < 12 ? "morning" : h < 17 ? "afternoon" : "evening"; }
+  var HERO = [
+    { you: "Hey Jarvis, what's due this week?", j: "You have 3 deadlines coming up, sir: DBMS Lab 5 is due tomorrow at 11:59 PM, the OS assignment on Friday, and the mini project on Sunday." },
+    { you: "Hey Jarvis, open Chrome and set the volume to thirty.", j: "Chrome coming up. Volume at thirty percent, sir." },
+    { you: "What time is it?", j: function () { return "It's " + clock() + ", sir."; } },
+    { you: "Hey Jarvis, are we secure?", j: "Sweep complete: 312 processes, 14 listening ports and 9 startup entries checked. No threats detected." },
+    { you: "Remind me in twenty minutes to call mum.", j: "Very good, sir. I'll remind you in 20 minutes." },
+    { you: "Jarvis, are you there?", j: "For you, sir, always." }
+  ];
+  var who = $("cap-who"), said = $("cap-said"), token = 0, heroAt = 0, timer = 0;
+  said.textContent = "Good " + partOfDay() + ", sir. Jarvis is online and all systems are operational.";
+  function wait(ms, t) { return new Promise(function (ok) { setTimeout(function () { ok(t === token); }, ms); }); }
+  function show(name, text, jarvis) {
+    who.textContent = name; who.className = "who" + (jarvis ? "" : " you");
+    said.className = "said" + (jarvis ? " j" : ""); said.textContent = text;
+  }
+  async function play(x, once) {
+    var t = ++token, reply = typeof x.j === "function" ? x.j() : x.j;
+    clearTimeout(timer);
+    if (reduce) { show("J.A.R.V.I.S.", reply, true); return; }
+    orb.state = "listening"; kick();
+    var words = x.you.split(" "), line = "";
+    for (var i = 0; i < words.length; i++) {         /* your words, as they are said: word by word */
+      line += (i ? " " : "") + words[i];
+      show("YOU", line + (i < words.length - 1 ? " …" : ""), false);
+      if (!(await wait(150 + Math.random() * 130, t))) return;
+    }
+    if (!(await wait(380, t))) return;
+    orb.state = "thinking";
+    if (!(await wait(520, t))) return;
+    orb.state = "speaking";
+    for (var c = 1; c <= reply.length; c++) {
+      if (c % 2 === 0 || c === reply.length) { show("J.A.R.V.I.S.", reply.slice(0, c), true); if (!(await wait(26, t))) return; }
+    }
+    if (!(await wait(900, t))) return;
+    orb.state = "idle";
+    timer = setTimeout(next, once ? 5200 : 3400);
+  }
+  function next() { play(HERO[heroAt++ % HERO.length]); }
+  canvas.addEventListener("click", next);
+
+  /* ------------------------------------------------------------------ boot sequence, then the hero arrives */
+  var boot = $("boot");
+  function heroIntro() {
+    if (!reduce) timer = setTimeout(next, 2400);
+    if (!G) { root.classList.remove("intro"); return; }
+    var items = all(".hero [data-in]"), lines = all(".hero h1 .ln > span");
+    root.classList.remove("intro");                  /* first, so GSAP doesn't read the CSS start offset as its own */
+    G.set(lines, { y: 0, yPercent: 115 });
+    G.set(items, { opacity: 0, y: 26 });
+    var tl = G.timeline({ defaults: { ease: "expo.out" } });
+    tl.to(lines, { yPercent: 0, duration: 1.25, stagger: .13 }, .05)
+      .to(items, { opacity: 1, y: 0, duration: 1.15, stagger: .065 }, .1)
+      .fromTo(".orbwrap canvas", { scale: .78, rotate: -8 }, { scale: 1, rotate: 0, duration: 2, ease: "expo.out" }, 0);
+    all("[data-count]").forEach(function (el) {
+      var o = { v: 0 }, n = +el.dataset.count;
+      el.textContent = "0";
+      tl.to(o, { v: n, duration: 1.6, ease: "power3.out", onUpdate: function () { el.textContent = Math.round(o.v); } }, .5);
+    });
+  }
+  var BOOT = [["g", "J.A.R.V.I.S.  v1.1"], ["", ""], ["", "wake word ........ "], ["", "speech ........... "], ["", "voice ............ "], ["", "language model ... "], ["", "security grid .... "], ["", ""], ["v", "Good " + partOfDay() + ", sir."]];
+  var BOOT_OK = ["", "", "online", "online", "online", "local", "armed", "", ""];
+  function runBoot(done) {
+    if (!boot || boot.hidden) { if (boot) boot.remove(); done(); return; }
+    var log = $("boot-log"), i = 0, over = false;
+    if (lenis) lenis.stop();
+    function finish() {
+      if (over) return;
+      over = true;
+      boot.classList.add("out");
+      try { sessionStorage.setItem("jarvis-booted", "1"); } catch (e) {}
+      if (lenis) lenis.start();
+      setTimeout(function () { boot.remove(); }, 900);
+      done();
+    }
+    (function tick() {
+      if (over) return;
+      if (i >= BOOT.length) { setTimeout(finish, 420); return; }
+      var s = document.createElement("span");
+      s.className = BOOT[i][0]; s.textContent = BOOT[i][1];
+      log.appendChild(s);
+      if (BOOT_OK[i]) { var k = document.createElement("span"); k.className = "ok"; k.textContent = BOOT_OK[i]; log.appendChild(k); }
+      log.appendChild(document.createTextNode("\n"));
+      i++;
+      setTimeout(tick, i === 1 ? 300 : 110);
+    })();
+    boot.addEventListener("click", finish);
+    window.addEventListener("keydown", finish, { once: true });
+    window.addEventListener("wheel", finish, { once: true, passive: true });
+    window.addEventListener("touchstart", finish, { once: true, passive: true });
+  }
+
+  /* ------------------------------------------------------------------ marquee: drifts on its own, follows your scroll speed and direction */
+  var mqs = all(".mq").map(function (m) {
+    var tr = m.querySelector(".mq-track");
+    all("span", tr).forEach(function (s) { var c = s.cloneNode(true); c.setAttribute("aria-hidden", "true"); tr.appendChild(c); });
+    return { tr: tr, dir: +m.dataset.dir || 1, x: 0, w: 0 };
+  });
+  function measureMq() { mqs.forEach(function (q) { q.w = q.tr.scrollWidth / 2; }); }
+  measureMq();
+  var vel = 0, lastSY = window.scrollY, mqSign = 1;
+  actor(document.querySelector(".marquee"), function (dt) {
+    var sy = window.scrollY, dv = (sy - lastSY) / Math.max(dt, .001) / 1000;
+    lastSY = sy;
+    vel += (dv - vel) * .12;
+    if (vel > .04) mqSign = 1; else if (vel < -.04) mqSign = -1;
+    var speed = 46 + Math.min(900, Math.abs(vel) * 650), skew = Math.max(-7, Math.min(7, -vel * 3.5));
+    mqs.forEach(function (q) {
+      q.x -= q.dir * mqSign * speed * dt;
+      if (q.w) { while (q.x <= -q.w) q.x += q.w; while (q.x > 0) q.x -= q.w; }
+      q.tr.style.transform = "translate3d(" + q.x.toFixed(1) + "px,0,0) skewX(" + skew.toFixed(2) + "deg)";
+    });
+  });
+
+  /* ------------------------------------------------------------------ how it works: the live trace follows the step in view */
+  var flow = $("flow"), fsteps = all(".fstep"), rows = all(".trace li"), wave = $("wave"), wctx = wave.getContext("2d");
+  var STEPN = ["WAKE", "LISTEN", "UNDERSTAND", "ACT", "SPEAK"], step = 0, wmix = [1, 0, 0, 0, 0];
+  function setStep(i) {
+    if (i < 0) return;
+    step = i;
+    fsteps.forEach(function (s, k) { s.classList.toggle("on", k === i); });
+    rows.forEach(function (r) { var s = +r.dataset.s; r.classList.toggle("lit", s < i); r.classList.toggle("cur", s === i); });
+    $("vis-step").textContent = "0" + (i + 1) + " / 05 · " + STEPN[i];
+    if (reduce) { fit(wave); drawWave(1, 1.3); }
+  }
+  function wlabel(txt, x, y, d, col, align) {
+    wctx.font = "500 " + (10.5 * d) + "px 'IBM Plex Mono', ui-monospace, monospace";
+    wctx.fillStyle = col; wctx.textAlign = align || "left"; wctx.fillText(txt, x, y);
+  }
+  var MODES = [
+    function wake(W, H, d, t) {
+      var cx = W / 2, cy = H / 2 + 6 * d;
+      for (var i = 0; i < 4; i++) {
+        var p = (t * .55 + i / 4) % 1;
+        wctx.strokeStyle = rgba(GOLD, (1 - p) * .75); wctx.lineWidth = 1.5 * d;
+        wctx.beginPath(); wctx.arc(cx, cy, 12 * d + p * H * .62, 0, 7); wctx.stroke();
+      }
+      var g = wctx.createRadialGradient(cx, cy, 0, cx, cy, 28 * d);
+      g.addColorStop(0, rgba(HOT, .95)); g.addColorStop(.4, rgba(GOLD, .7)); g.addColorStop(1, rgba(GOLD, 0));
+      wctx.fillStyle = g; wctx.beginPath(); wctx.arc(cx, cy, 28 * d, 0, 7); wctx.fill();
+      wlabel("“HEY JARVIS”", 14 * d, 22 * d, d, rgba(GOLD, .95));
+      wlabel("SCORE 1.00", W - 14 * d, 22 * d, d, rgba(MUTE, .9), "right");
+    },
+    function listen(W, H, d, t) {
+      var n = 56, gap = W / n, mid = H / 2 + 6 * d;
+      wctx.fillStyle = rgba(ARC, .85);
+      for (var i = 0; i < n; i++) {
+        var env = (Math.sin(i * .45 + t * 7) * .5 + .5) * (Math.sin(i * .12 - t * 2.6) * .5 + .5);
+        var gate = Math.sin(t * 1.3 - i * .05) > -.4 ? 1 : .12, h = Math.max(1.5 * d, env * gate * H * .34);
+        wctx.fillRect(i * gap + gap * .22, mid - h, gap * .56, h * 2);
+      }
+      wlabel("LIVE CAPTION", 14 * d, 22 * d, d, rgba(ARC, .95));
+      wlabel("VOSK + WHISPER", W - 14 * d, 22 * d, d, rgba(MUTE, .9), "right");
+    },
+    function understand(W, H, d, t) {
+      var x0 = 34 * d, xs = W * .34, x1 = W - 128 * d, yA = H * .42, yB = H * .76, y0 = H * .59;
+      wctx.lineWidth = 1.6 * d;
+      wctx.strokeStyle = rgba(GOLD, .75);
+      wctx.beginPath(); wctx.moveTo(x0, y0); wctx.bezierCurveTo(xs * .75, y0, xs * .75, yA, xs, yA); wctx.lineTo(x1, yA); wctx.stroke();
+      wctx.strokeStyle = rgba(MUTE, .45); wctx.setLineDash([4 * d, 5 * d]);
+      wctx.beginPath(); wctx.moveTo(x0, y0); wctx.bezierCurveTo(xs * .75, y0, xs * .75, yB, xs, yB); wctx.lineTo(x1, yB); wctx.stroke();
+      wctx.setLineDash([]);
+      function at(p, yy) {
+        var x = x0 + (x1 - x0) * p, y;
+        if (x < xs) { var u = (x - x0) / (xs - x0); u = u * u * (3 - 2 * u); y = y0 + (yy - y0) * u; } else y = yy;
+        return [x, y];
+      }
+      var a = at((t * .95) % 1, yA), b = at((t * .3) % 1, yB);
+      var g = wctx.createRadialGradient(a[0], a[1], 0, a[0], a[1], 12 * d);
+      g.addColorStop(0, rgba(HOT, 1)); g.addColorStop(1, rgba(GOLD, 0));
+      wctx.fillStyle = g; wctx.beginPath(); wctx.arc(a[0], a[1], 12 * d, 0, 7); wctx.fill();
+      wctx.fillStyle = rgba(MUTE, .8); wctx.beginPath(); wctx.arc(b[0], b[1], 3 * d, 0, 7); wctx.fill();
+      wctx.fillStyle = rgba(GOLD, .9); wctx.beginPath(); wctx.arc(x0, y0, 4 * d, 0, 7); wctx.fill();
+      wlabel("REFLEX 0.1-0.4 s", x1 + 10 * d, yA + 4 * d, d, rgba(GOLD, .95));
+      wlabel("MODEL 1-2 s", x1 + 10 * d, yB + 4 * d, d, rgba(MUTE, .85));
+      wlabel("ROUTER", 14 * d, 22 * d, d, rgba(MUTE, .9));
+    },
+    function act(W, H, d, t) {
+      var cols = 10, rws = 5, pad = 14 * d, top = 34 * d, cw = (W - pad * 2) / cols, ch = (H - top - pad) / rws;
+      for (var r = 0; r < rws; r++) for (var c = 0; c < cols; c++) {
+        var i = r * cols + c, hot = i === 12 || i === 27, x = pad + c * cw + 3 * d, y = top + r * ch + 3 * d, w = cw - 6 * d, h = ch - 6 * d;
+        if (hot) {
+          var pulse = .6 + .4 * Math.sin(t * 5 + i);
+          wctx.fillStyle = rgba(GOLD, .18 + .22 * pulse); wctx.fillRect(x, y, w, h);
+          wctx.strokeStyle = rgba(GOLD, .95); wctx.lineWidth = 1.4 * d; wctx.strokeRect(x, y, w, h);
+        } else {
+          wctx.fillStyle = rgba([43, 57, 80], .3 + .12 * Math.sin(t * 1.6 + i * 1.7)); wctx.fillRect(x, y, w, h);
+        }
+      }
+      wlabel("50 TOOLS", 14 * d, 22 * d, d, rgba(MUTE, .9));
+      wlabel("open_app + volume", W - 14 * d, 22 * d, d, rgba(GOLD, .95), "right");
+    },
+    function speak(W, H, d, t) {
+      var mid = H / 2 + 6 * d, env = .45 + .55 * Math.abs(Math.sin(t * 2.1) * Math.sin(t * .9 + 1));
+      for (var L = 0; L < 3; L++) {
+        wctx.beginPath();
+        for (var x = 0; x <= W; x += 4 * d) {
+          var u = x / W, y = mid + Math.sin(u * (10 + L * 4) + t * (4 + L * 1.3) + L) * H * .27 * env * Math.sin(Math.PI * u) * (1 - L * .25);
+          if (x === 0) wctx.moveTo(x, y); else wctx.lineTo(x, y);
+        }
+        wctx.strokeStyle = rgba(L ? HOT : GOLD, .85 - L * .25); wctx.lineWidth = (2 - L * .5) * d; wctx.stroke();
+      }
+      wlabel("NEURAL VOICE en-GB", 14 * d, 22 * d, d, rgba(GOLD, .95));
+      wlabel("INTERRUPTIBLE", W - 14 * d, 22 * d, d, rgba(MUTE, .9), "right");
+    }
+  ];
+  function drawWave(dt, t) {
+    var W = wave.width, H = wave.height, d = W / (wave.clientWidth || W) || 1;
+    for (var k = 0; k < 5; k++) wmix[k] += ((k === step ? 1 : 0) - wmix[k]) * Math.min(1, dt * 5);
+    wctx.clearRect(0, 0, W, H);
+    wctx.strokeStyle = "rgba(43,57,80,.32)"; wctx.lineWidth = 1;
+    wctx.beginPath();
+    for (var gx = 0; gx < W; gx += 28 * d) { wctx.moveTo(gx + .5, 0); wctx.lineTo(gx + .5, H); }
+    for (var gy = 0; gy < H; gy += 28 * d) { wctx.moveTo(0, gy + .5); wctx.lineTo(W, gy + .5); }
+    wctx.stroke();
+    for (k = 0; k < 5; k++) if (wmix[k] > .01) { wctx.save(); wctx.globalAlpha = wmix[k]; MODES[k](W, H, d, t); wctx.restore(); }
+  }
+  fit(wave); drawWave(1, 1.3);
+  actor(wave, drawWave);
+  if (IO) {
+    flow.classList.add("live");
+    setStep(0);
+    var stepIO = new IntersectionObserver(function (en) {
+      en.forEach(function (e) { if (e.isIntersecting) setStep(fsteps.indexOf(e.target)); });
+    }, { rootMargin: "-46% 0px -50% 0px" });
+    fsteps.forEach(function (s) { stepIO.observe(s); });
+  }
+
+  /* ------------------------------------------------------------------ security radar */
+  var radar = $("radar"), rc = radar.getContext("2d");
+  var BLIPS = [["FACE", .45, .56], ["FILES", 1.5, .8], ["NET", 2.5, .42], ["PROC", 3.45, .72], ["USB", 4.35, .5], ["LOGIN", 5.35, .82]];
+  function drawRadar(dt, t) {
+    var S = radar.width, c = S / 2, R = S * .4, d = S / (radar.clientWidth || S) || 1, TAU = Math.PI * 2;
+    rc.clearRect(0, 0, S, S);
+    rc.strokeStyle = "rgba(43,57,80,.95)"; rc.lineWidth = d;
+    for (var i = 1; i <= 4; i++) { rc.beginPath(); rc.arc(c, c, R * i / 4, 0, 7); rc.stroke(); }
+    rc.beginPath(); rc.moveTo(c - R, c); rc.lineTo(c + R, c); rc.moveTo(c, c - R); rc.lineTo(c, c + R); rc.stroke();
+    var a = (t * 1.15) % TAU;
+    if (rc.createConicGradient) {
+      var g = rc.createConicGradient(a - 1.2, c, c), f = 1.2 / TAU;
+      g.addColorStop(0, rgba(OKC, 0)); g.addColorStop(f, rgba(OKC, .34)); g.addColorStop(Math.min(1, f + .002), rgba(OKC, 0)); g.addColorStop(1, rgba(OKC, 0));
+      rc.fillStyle = g; rc.beginPath(); rc.arc(c, c, R, 0, 7); rc.fill();
+    } else {
+      rc.fillStyle = rgba(OKC, .14); rc.beginPath(); rc.moveTo(c, c); rc.arc(c, c, R, a - .6, a); rc.closePath(); rc.fill();
+    }
+    rc.strokeStyle = rgba(OKC, .9); rc.lineWidth = 1.5 * d;
+    rc.beginPath(); rc.moveTo(c, c); rc.lineTo(c + Math.cos(a) * R, c + Math.sin(a) * R); rc.stroke();
+    rc.font = "500 " + (9 * d) + "px 'IBM Plex Mono', ui-monospace, monospace"; rc.textAlign = "left";
+    BLIPS.forEach(function (b) {
+      var since = (((a - b[1]) % TAU) + TAU) % TAU, glow = Math.exp(-since * 1.1);
+      var x = c + Math.cos(b[1]) * R * b[2], y = c + Math.sin(b[1]) * R * b[2];
+      rc.fillStyle = rgba(OKC, .3 + .7 * glow); rc.beginPath(); rc.arc(x, y, (2.4 + glow * 3) * d, 0, 7); rc.fill();
+      rc.fillStyle = rgba(MUTE, .45 + .5 * glow); rc.fillText(b[0], x + 8 * d, y + 3 * d);
+    });
+    rc.fillStyle = rgba(OKC, 1); rc.beginPath(); rc.arc(c, c, 2.5 * d, 0, 7); rc.fill();
+  }
+  fit(radar); drawRadar(0, 1);
+  actor(radar, drawRadar);
+
+  /* ------------------------------------------------------------------ a day with Jarvis */
+  var day = $("day"), track = $("day-track"), scenes = all(".scene", track), dayBar = $("day-bar"), dayClock = $("day-clock");
+  var SKY = ["#7a4a14", "#1f4f7a", "#2a6492", "#24557e", "#7a3e1a", "#2b2468", "#151c42"], curScene = -1;
+  function dayProgress(p) {
+    p = Math.max(0, Math.min(1, p));
+    dayBar.style.transform = "scaleX(" + p.toFixed(4) + ")";
+    var i = Math.round(p * (scenes.length - 1));
+    if (i === curScene) return;
+    curScene = i;
+    day.style.setProperty("--sky", SKY[i]);
+    dayClock.textContent = scenes[i].dataset.time;
+    scenes.forEach(function (s, k) { s.classList.toggle("on", k === i); });
+  }
+  track.addEventListener("scroll", function () {
+    if (day.classList.contains("pinned")) return;
+    var m = track.scrollWidth - track.clientWidth;
+    dayProgress(m > 0 ? track.scrollLeft / m : 0);
+  }, { passive: true });
+  dayProgress(0);
+
+  /* ------------------------------------------------------------------ install: pick the visitor's system, copy buttons, setup transcript */
+  var mac = /Mac|iPhone|iPad/.test(navigator.platform || "") || /Mac OS X/.test(navigator.userAgent || "");
+  var term = $("term-pre"), termTitle = $("term-title"), termRun = 0, termSeen = false, osNow = "win";
+  var TERM = { win: { title: "Windows PowerShell", html: term.innerHTML }, mac: { title: "Terminal", html: $("term-mac").innerHTML } };
+  (function sizeTerm() {                             /* the box keeps the height of the longer transcript, so typing never shifts the page */
+    var hgt = 0;
+    ["mac", "win"].forEach(function (k) { term.innerHTML = TERM[k].html; hgt = Math.max(hgt, term.offsetHeight); });
+    term.style.minHeight = hgt + "px";
+  })();
+  function typeTerm(which) {
+    var r = ++termRun;
+    termTitle.textContent = TERM[which].title;
+    var holder = document.createElement("div"); holder.innerHTML = TERM[which].html;
+    var lines = all(".ln", holder);
+    if (reduce) { term.innerHTML = TERM[which].html; return; }
+    term.textContent = "";
+    var caret = document.createElement("span"); caret.className = "caret";
+    var i = 0;
+    function nextLine() {
+      if (r !== termRun) return;
+      if (i >= lines.length) { term.appendChild(caret); return; }
+      var src = lines[i++], full = src.textContent, ln = document.createElement("span");
+      ln.className = src.className;
+      if (i > 1) term.appendChild(document.createTextNode("\n"));
+      term.appendChild(ln);
+      if (src.dataset.from) {
+        var c = +src.dataset.from;
+        ln.textContent = full.slice(0, c); ln.appendChild(caret);
+        setTimeout(function typeC() {
+          if (r !== termRun) return;
+          if (c < full.length) { ln.textContent = full.slice(0, ++c); ln.appendChild(caret); setTimeout(typeC, 18 + Math.random() * 34); }
+          else setTimeout(nextLine, 300);
+        }, 380);
+      } else {
+        ln.textContent = full; ln.appendChild(caret);
+        setTimeout(nextLine, /^=== /.test(full) ? 260 : 120);
+      }
+    }
+    nextLine();
+  }
+  function setTerm(which) { if (termSeen) typeTerm(which); else { termRun++; term.innerHTML = TERM[which].html; termTitle.textContent = TERM[which].title; } }
+  if (IO && !reduce) {
+    var termIO = new IntersectionObserver(function (en) {
+      if (en[0].isIntersecting && !termSeen) { termSeen = true; typeTerm(osNow); termIO.disconnect(); }
+    }, { threshold: .35 });
+    termIO.observe($("term"));
+  }
+  function os(which, animate) {
+    var m = which === "mac";
+    osNow = which;
+    $("os-mac").setAttribute("aria-selected", m ? "true" : "false");
+    $("os-win").setAttribute("aria-selected", m ? "false" : "true");
+    $("pane-mac").hidden = !m; $("pane-win").hidden = m;
+    if (G && animate) { G.fromTo(m ? "#pane-mac" : "#pane-win", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: .6, ease: "expo.out", overwrite: true }); ScrollTrigger.refresh(); }
+    setTerm(which);
+  }
+  $("os-win").addEventListener("click", function () { os("win", true); });
+  $("os-mac").addEventListener("click", function () { os("mac", true); });
+  os(mac ? "mac" : "win", false);
+  $("dl-main-text").textContent = mac ? "Install on your Mac" : "Install on Windows";
+  $("go-text").textContent = mac ? "Install on your Mac" : "Install on Windows";
+  all("[data-copy]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var pre = $(b.dataset.copy), text = pre.textContent;
+      var done = function () { b.textContent = "Copied"; setTimeout(function () { b.textContent = "Copy"; }, 1600); };
+      var fallback = function () {
+        var r = document.createRange(); r.selectNodeContents(pre);
+        var s = getSelection(); s.removeAllRanges(); s.addRange(r);
+        b.textContent = "Selected"; setTimeout(function () { b.textContent = "Copy"; }, 1600);
+      };
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
+        else fallback();
+      } catch (e) { fallback(); }
+    });
+  });
+
+  /* ------------------------------------------------------------------ what to say */
+  var HOW_R = "<b>Instant reflex.</b> Matched without the language model: done 0.1–0.4 s after you stop talking.";
+  var HOW_M = "<b class=\"m\">Language model.</b> Thought through locally, then acted on or answered in a second or two.";
+  var SAY = [
+    ["Apps and browser", [
+      ["Hey Jarvis, open Chrome.", "Chrome coming up.", HOW_R],
+      ["New tab.", "New tab, sir.", HOW_R],
+      ["Go back.", "Going back, sir.", HOW_R],
+      ["Open YouTube in a new tab.", "Opening Youtube, sir.", HOW_R],
+      ["Play Interstellar main theme.", "Playing interstellar main theme on YouTube.", HOW_R],
+      ["Open Notepad and set the volume to 20.", "Notepad coming up. Volume at twenty percent, sir.", HOW_R],
+      ["Close it.", "Closed, sir.", HOW_R]]],
+    ["System", [
+      ["Volume up.", "Done, sir.", HOW_R],
+      ["Take a screenshot.", "Screenshot saved to your Pictures folder, sir.", HOW_R],
+      ["How's the battery?", "Power is at 84 percent and charging, sir.", HOW_R],
+      ["Run diagnostics.", "All systems nominal, sir. Processor at 12 percent, memory at 61, and 148 gigabytes free on the main drive.", HOW_R],
+      ["Which Wi-Fi am I on?", "Wi-Fi connected to HomeNet at 92% signal, sir.", HOW_R],
+      ["What's on my screen?", "You're looking at a pull request titled Fix login redirect, with two failing checks and one comment asking for a test.", HOW_M],
+      ["Lock the screen.", "Locking up, sir.", HOW_R]]],
+    ["Deadlines and mail", [
+      ["What's due?", "You have 3 deadlines coming up, sir: DBMS Lab 5 is due tomorrow at 11:59 PM, the OS assignment on Friday, and the mini project on Sunday.", HOW_R],
+      ["What's on my calendar today?", "Today you have Physics lecture at 10 AM and Project review at 3 PM. Also due DBMS Lab 5 at 11:59 PM.", HOW_R],
+      ["Check my email.", "You have 2 unread emails from the last three days, sir. The latest: Prof Iyer about Lab schedule change and Placement Cell about Aptitude test registration.", HOW_R],
+      ["I've submitted the DBMS lab.", "Marked DBMS Lab 5 as done, sir. No more reminders about it.", HOW_R],
+      ["(unprompted, an hour before)", "Sir, a reminder: DBMS Lab 5 is due in about an hour.", "<b>Unprompted.</b> He speaks up 3 days, 1 day, 6 hours and 1 hour before each deadline."]]],
+    ["Reminders and notes", [
+      ["Set a timer for ten minutes.", "Timer set, sir. I'll let you know in 10 minutes.", HOW_R],
+      ["Remind me at 5 pm to call the bank.", "Very good, sir. I'll remind you at 5 PM today.", HOW_R],
+      ["Remember that my locker code is on the blue card.", "I'll remember that, sir.", HOW_M],
+      ["What's 18 percent of 2450?", "18% of 2450 = 441", HOW_R],
+      ["Take a note: ask about the internship form.", "Noted.", HOW_M]]],
+    ["Security", [
+      ["Are we secure?", "Sweep complete: 312 processes, 14 listening ports and 9 startup entries checked. Owner identity verified by camera. No threats detected.", HOW_R],
+      ["Scan my network.", "I found 6 devices on your network, sir. One has a database port open to everyone on the Wi-Fi, which is worth closing.", HOW_M],
+      ["Show me the intruder photos.", "Here they are, sir: 2 photos in Jarvis Intruders.", HOW_R],
+      ["Shut down the computer.", "Shall I shut down the computer, sir? Yes or no.", "<b class=\"m\">Asks first.</b> Risky actions need a spoken yes, and are refused if a stranger is at the keyboard."],
+      ["Lockdown protocol.", "Lockdown protocol engaged. The system is secured.", HOW_R]]],
+    ["Conversation", [
+      ["Jarvis, are you there?", "For you, sir, always.", HOW_R],
+      ["Explain a deadlock like I'm five.", "Two children each hold a toy the other wants, and neither will let go first. So both wait forever, sir.", HOW_M],
+      ["Work protocol.", "Work protocol engaged. Your workspace is ready, sir.", HOW_R],
+      ["Stay with me.", "I'm all ears, sir. Just say that's all when you're done.", HOW_R],
+      ["Thank you.", "My pleasure, sir.", HOW_R]]]
+  ];
+  var tabs = $("tabs"), list = $("phrases"), con = $("console"), runId = 0;
+  function label(s) { $("con-state").textContent = s; }
+  async function demo(item, btn) {
+    var t = ++runId;
+    all("button", list).forEach(function (b) { b.removeAttribute("aria-current"); });
+    if (btn) btn.setAttribute("aria-current", "true");
+    var you = $("con-you"), j = $("con-j"), how = $("con-how");
+    how.innerHTML = item[2];
+    if (reduce) { you.textContent = item[0]; j.textContent = item[1]; return; }
+    var alive = function (ms) { return new Promise(function (ok) { setTimeout(function () { ok(t === runId); }, ms); }); };
+    con.dataset.state = "listening"; label("LISTENING"); j.textContent = ""; you.textContent = "";
+    var w = item[0].split(" "), acc = "";
+    for (var i = 0; i < w.length; i++) { acc += (i ? " " : "") + w[i]; you.textContent = acc; if (!(await alive(95))) return; }
+    con.dataset.state = "thinking"; label("PROCESSING");
+    if (!(await alive(item[2] === HOW_M ? 900 : 260))) return;
+    con.dataset.state = "speaking"; label("SPEAKING");
+    for (var c = 2; c <= item[1].length + 1; c += 2) { j.textContent = item[1].slice(0, c); if (!(await alive(18))) return; }
+    if (!(await alive(700))) return;
+    con.dataset.state = "idle"; label("STANDING BY");
+  }
+  function openTab(n, run) {
+    all("button", tabs).forEach(function (b, i) { b.setAttribute("aria-selected", i === n ? "true" : "false"); });
+    list.innerHTML = "";
+    SAY[n][1].forEach(function (item, i) {
+      var b = document.createElement("button");
+      b.type = "button"; b.id = "say-" + n + "-" + i; b.textContent = item[0];
+      b.addEventListener("click", function () { demo(item, b); });
+      list.appendChild(b);
+    });
+    if (G && run) G.from(list.children, { opacity: 0, x: -12, duration: .5, stagger: .04, ease: "expo.out" });
+    if (run) demo(SAY[n][1][0], list.firstChild);
+    try { sessionStorage.setItem("jarvis-tab", n); } catch (e) {}
+  }
+  SAY.forEach(function (group, n) {
+    var b = document.createElement("button");
+    b.type = "button"; b.id = "tab-" + n; b.setAttribute("role", "tab"); b.textContent = group[0];
+    b.addEventListener("click", function () { openTab(n, true); });
+    tabs.appendChild(b);
+  });
+  var startTab = 0;
+  try { startTab = Math.min(SAY.length - 1, parseInt(sessionStorage.getItem("jarvis-tab") || "0", 10) || 0); } catch (e) {}
+  openTab(startTab, false);
+  list.firstChild.setAttribute("aria-current", "true");
+  if (startTab) { $("con-you").textContent = SAY[startTab][1][0][0]; $("con-j").textContent = SAY[startTab][1][0][1]; $("con-how").innerHTML = SAY[startTab][1][0][2]; }
+
+  /* ------------------------------------------------------------------ pointer niceties: spotlight cards, magnetic buttons */
+  if (fine) {
+    all(".cap").forEach(function (el) {
+      el.addEventListener("pointermove", function (e) {
+        var r = el.getBoundingClientRect();
+        el.style.setProperty("--mx", (e.clientX - r.left) + "px"); el.style.setProperty("--my", (e.clientY - r.top) + "px");
+      });
+    });
+    if (!reduce) all(".btn.primary, .top nav a.cta").forEach(function (b) {
+      b.addEventListener("pointermove", function (e) {
+        var r = b.getBoundingClientRect();
+        b.style.setProperty("--tx", ((e.clientX - r.left - r.width / 2) * .2).toFixed(1) + "px");
+        b.style.setProperty("--ty", ((e.clientY - r.top - r.height / 2) * .32).toFixed(1) + "px");
+      });
+      b.addEventListener("pointerleave", function () { b.style.setProperty("--tx", "0px"); b.style.setProperty("--ty", "0px"); });
+    });
+  }
+
+  /* ------------------------------------------------------------------ scroll choreography (GSAP + ScrollTrigger) */
+  function splitWords(el) {
+    var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT), nodes = [], n;
+    while ((n = walker.nextNode())) nodes.push(n);
+    nodes.forEach(function (tn) {
+      var frag = document.createDocumentFragment();
+      tn.textContent.split(/(\s+)/).forEach(function (part) {
+        if (!part) return;
+        if (/^\s+$/.test(part)) { frag.appendChild(document.createTextNode(part)); return; }
+        var s = document.createElement("span"); s.className = "w"; s.textContent = part; frag.appendChild(s);
+      });
+      tn.parentNode.replaceChild(frag, tn);
+    });
+    return all(".w", el);
+  }
+  function splitChars(el) {
+    var out = [];
+    var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT), nodes = [], n;
+    while ((n = walker.nextNode())) nodes.push(n);
+    nodes.forEach(function (tn) {
+      var frag = document.createDocumentFragment();
+      tn.textContent.split(/(\s+)/).forEach(function (word) {
+        if (!word) return;
+        if (/^\s+$/.test(word)) { frag.appendChild(document.createTextNode(" ")); return; }
+        var wd = document.createElement("span"); wd.className = "wd";
+        word.split("").forEach(function (ch) { var s = document.createElement("span"); s.className = "ch"; s.textContent = ch; wd.appendChild(s); out.push(s); });
+        frag.appendChild(wd);
+      });
+      tn.parentNode.replaceChild(frag, tn);
+    });
+    return out;
+  }
+
+  if (G) {
+    /* pinned first, so every trigger below it measures with the pin's extra scroll length */
+    G.matchMedia().add("(min-width: 900px)", function () {
+      day.classList.add("pinned");
+      var dist = function () { return Math.max(0, track.scrollWidth - root.clientWidth); };
+      var tw = G.to(track, { x: function () { return -dist(); }, ease: "none" });
+      ScrollTrigger.create({
+        trigger: day, start: "top top", end: function () { return "+=" + dist(); },
+        pin: true, scrub: .9, animation: tw, invalidateOnRefresh: true, anticipatePin: 1,
+        onUpdate: function (s) { dayProgress(s.progress); }
+      });
+      return function () { day.classList.remove("pinned"); G.set(track, { clearProps: "transform" }); };
+    });
+
+    /* hero recedes as you leave it */
+    var hs = function () { return { trigger: ".hero", start: "top top", end: "bottom top", scrub: true }; };
+    G.to(".hero .copy", { y: -90, opacity: .08, ease: "none", scrollTrigger: hs() });
+    G.to(".stage", { y: 120, scale: .88, opacity: .12, ease: "none", scrollTrigger: hs() });
+    G.to(".hud-scroll", { rotation: 160, svgOrigin: "230 230", ease: "none", scrollTrigger: hs() });
+
+    /* how-it-works rail fills as the steps pass */
+    G.fromTo("#rail", { scaleY: 0 }, { scaleY: 1, ease: "none", scrollTrigger: { trigger: ".flow-steps", start: "top 55%", end: "bottom 55%", scrub: true } });
+
+    /* headings and blocks rise into place */
+    var rv = all(".band header, .cap, .groups section, .all-head, .monitors > div, .radar-box, .rule, .split > div, .os, .install, .term, .tbl, .faq details, .say > *, .go .wrap > *");
+    G.set(rv, { opacity: 0, y: 38 });
+    ScrollTrigger.batch(rv, {
+      start: "top 90%", once: true,
+      onEnter: function (b) { G.to(b, { opacity: 1, y: 0, duration: 1.05, ease: "expo.out", stagger: .07, overwrite: true }); }
+    });
+
+    /* the privacy statement lights up word by word, tied to scroll */
+    var words = splitWords($("statement"));
+    G.fromTo(words, { opacity: .14 }, { opacity: 1, stagger: .1, ease: "none", scrollTrigger: { trigger: "#statement", start: "top 80%", end: "bottom 45%", scrub: .6 } });
+
+    /* closing rings turn with the scroll, and the sign-off is set letter by letter */
+    G.fromTo(".go-rings", { scale: .7, opacity: 0 }, { scale: 1.1, opacity: 1, ease: "none", scrollTrigger: { trigger: ".go", start: "top bottom", end: "bottom top", scrub: true } });
+    var chars = splitChars($("sign"));
+    G.from(chars, { yPercent: 110, opacity: 0, duration: 1.1, stagger: .03, ease: "expo.out", scrollTrigger: { trigger: "#sign", start: "top 92%" } });
+
+    ScrollTrigger.sort();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { measureMq(); ScrollTrigger.refresh(); });
+    window.addEventListener("load", function () { ScrollTrigger.refresh(); });
+  }
+
+  /* ------------------------------------------------------------------ resize */
+  var rT = 0;
+  window.addEventListener("resize", function () {
+    clearTimeout(rT);
+    rT = setTimeout(function () {
+      fit(field); fit(wave); fit(radar); seedField(); measureMq();
+      if (reduce) { drawField(0, 0); drawWave(1, 1.3); drawRadar(0, 1); }
+    }, 150);
+  });
+
+  runBoot(heroIntro);
+  kick();
+})();
+</script>

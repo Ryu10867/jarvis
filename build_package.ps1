@@ -1,4 +1,4 @@
-# Builds the shareable installer:  dist\Jarvis-Installer-<version>.zip
+# Builds the shareable installers:  dist\Jarvis-Installer-Windows.zip  and  dist\Jarvis-Installer-macOS.zip
 #   powershell -ExecutionPolicy Bypass -File build_package.ps1
 #
 # Only whitelisted files are packed: the jarvis/ code, the Chrome helper, a copy of config.toml as the default
@@ -44,16 +44,14 @@ $z.Dispose()
 $bad = $names | Where-Object { $_ -match '(?i)(owner_faces|intruder|\.npy$|\.jpg$|jarvis\.log|alerts\.jsonl|memory\.json|learned_commands|\.onnx$)' }
 if ($bad) { throw "personal or model files found in the wheel: $($bad -join ', ')" }
 
-# --- the installer folder + zip
-$out = Join-Path $dist "Jarvis-Installer-$version"
-if (Test-Path $out) { Remove-Item -Recurse -Force $out }
-New-Item -ItemType Directory $out | Out-Null
-Copy-Item $wheel.FullName, (Join-Path $root 'packaging\install.ps1'), (Join-Path $root 'packaging\install.bat'), (Join-Path $root 'packaging\uninstall.bat') $out
-Copy-Item (Join-Path $root 'packaging\INSTALL.md') (Join-Path $out 'README.md')
-$zip = "$out.zip"
-if (Test-Path $zip) { Remove-Item $zip }
-Compress-Archive -Path "$out\*" -DestinationPath $zip
+# --- the two installer zips (Windows + macOS). Fixed names, so the website's "latest release" links never change.
+Write-Host "`nInstallers:" -ForegroundColor Green
+& $py (Join-Path $root 'packaging\make_zips.py') $version
+if ($LASTEXITCODE -ne 0) { throw "packing the installers failed" }
+Write-Host "Website:" -ForegroundColor Green
+& $py (Join-Path $root 'packaging\make_site.py')
+if ($LASTEXITCODE -ne 0) { throw "building the website failed" }
 Remove-Item -Recurse -Force (Join-Path $root 'build')
 
-Write-Host "`nWheel:      $($wheel.FullName)" -ForegroundColor Green
-Write-Host "Share this: $zip ($([math]::Round((Get-Item $zip).Length / 1KB)) KB)" -ForegroundColor Green
+Write-Host "Wheel:  $($wheel.FullName)" -ForegroundColor Green
+Write-Host "Upload the two zips (and the wheel) to a GitHub release tagged v$version." -ForegroundColor Green

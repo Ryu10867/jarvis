@@ -44,7 +44,16 @@ class NetworkWatch:
             return psutil.net_connections(kind="inet")
         except Exception as e:
             log.debug("net_connections failed: %s", e)
-            return []
+        # macOS only lets an ordinary user list the connections of their own programs: ask each one in turn.
+        import collections
+        Conn = collections.namedtuple("Conn", "laddr raddr status pid")
+        out = []
+        for p in psutil.process_iter(["pid"]):
+            try:
+                out += [Conn(c.laddr, c.raddr, c.status, p.info["pid"]) for c in p.net_connections(kind="inet")]
+            except Exception:
+                continue
+        return out
 
     def _remember(self, key: str):
         self.known.add(key)
