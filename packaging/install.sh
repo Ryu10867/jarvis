@@ -91,7 +91,7 @@ cat > "$BIN/jarvis" <<EOF
 VENV="$VENV"
 CERTS="\$("\$VENV/bin/python" -c 'import certifi; print(certifi.where())' 2>/dev/null || true)"
 [ -n "\$CERTS" ] && export SSL_CERT_FILE="\$CERTS"       # so downloads work with any Python build
-exec "\$VENV/bin/python" -m jarvis "\$@"
+exec "\$VENV/bin/python" -P -m jarvis "\$@"      # -P: never pick up a jarvis/ folder in the current directory
 EOF
 chmod +x "$BIN/jarvis"
 case ":$PATH:" in

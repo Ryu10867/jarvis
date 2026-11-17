@@ -82,7 +82,8 @@ if ($LASTEXITCODE -ne 0) { throw "pip install failed (see the messages above)." 
 New-Item -ItemType Directory -Force $bin | Out-Null
 # Runs through the (Microsoft-trusted, signed) python.exe rather than pip's generated jarvis.exe launcher:
 # Windows Smart App Control blocks that unsigned launcher.
-Set-Content -Path (Join-Path $bin 'jarvis.cmd') -Encoding ascii -Value "@echo off`r`ntitle J.A.R.V.I.S.`r`n`"$vpy`" -m jarvis %*"
+# -P: run the installed Jarvis even when the current folder happens to contain a jarvis/ source folder.
+Set-Content -Path (Join-Path $bin 'jarvis.cmd') -Encoding ascii -Value "@echo off`r`ntitle J.A.R.V.I.S.`r`n`"$vpy`" -P -m jarvis %*"
 $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
 if (-not $userPath) { $userPath = '' }
 if (($userPath -split ';') -notcontains $bin) {
@@ -97,7 +98,7 @@ try {
     $ws = New-Object -ComObject WScript.Shell
     $lnk = $ws.CreateShortcut((Join-Path $desktop 'Jarvis.lnk'))
     $lnk.TargetPath = $vpy
-    $lnk.Arguments = '-m jarvis'
+    $lnk.Arguments = '-P -m jarvis'
     $lnk.WorkingDirectory = $env:USERPROFILE
     $lnk.Description = 'Start J.A.R.V.I.S.'
     $lnk.Save()
@@ -106,5 +107,5 @@ try {
 Say "`nJarvis is installed. Starting first-time setup...`n" Green
 $setupArgs = @()
 if ($env:JARVIS_SETUP_ARGS) { $setupArgs = $env:JARVIS_SETUP_ARGS -split '\s+' }     # e.g. "--yes": accept every default
-& $vpy -m jarvis setup @setupArgs
+& $vpy -P -m jarvis setup @setupArgs
 Say "`nAll done. Double-click 'Jarvis' on the Desktop, or type  jarvis  in a new terminal." Green

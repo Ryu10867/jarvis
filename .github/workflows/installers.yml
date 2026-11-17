@@ -36,7 +36,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-14, macos-15, macos-13]      # Apple silicon (14, 15) and Intel (13)
+        os: [macos-15, macos-15-intel]          # Apple silicon and Intel (GitHub has retired its macOS 13 and 14 machines)
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -74,5 +74,5 @@ jobs:
       - name: Smoke test
         shell: pwsh
         run: |
-          & "$env:LOCALAPPDATA\Programs\Jarvis\venv\Scripts\python.exe" -m jarvis --help | Select-Object -First 5
+          & "$env:LOCALAPPDATA\Programs\Jarvis\venv\Scripts\python.exe" -P -m jarvis --help | Select-Object -First 5
           & "$env:LOCALAPPDATA\Programs\Jarvis\venv\Scripts\python.exe" packaging\ci_smoke.py
