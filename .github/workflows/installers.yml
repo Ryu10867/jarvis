@@ -1,0 +1,78 @@
+# Installs Jarvis with the real installers on real Windows and macOS machines, then runs the smoke test:
+# every module imports, the models download, the voice speaks, Whisper/Vosk understand it, and on a Mac the
+# system layer (AppleScript, Vision OCR, app launching) really works. No language model is downloaded here.
+name: installers
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build the wheel (same staging as build_package.ps1)
+        run: |
+          mkdir -p stage dist
+          cp -R jarvis stage/jarvis
+          find stage -name __pycache__ -type d -prune -exec rm -rf {} +
+          cp -R extension stage/jarvis/extension
+          cp config.toml stage/jarvis/default_config.toml
+          cp packaging/pyproject.toml stage/
+          cp packaging/INSTALL.md stage/README.md
+          python -m pip wheel stage --no-deps -w dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel
+          path: dist/*.whl
+
+  macos:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-15, macos-13]      # Apple silicon (14, 15) and Intel (13)
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheel
+          path: packaging
+      - name: Run the Mac installer
+        env:
+          JARVIS_SETUP_ARGS: "--yes --no-brain"
+        run: bash packaging/install.sh
+      - name: jarvis command works
+        run: |
+          "$HOME/.local/bin/jarvis" --help | head -5
+          "$HOME/.local/bin/jarvis" agenda || true
+          "$HOME/.local/bin/jarvis" check || true
+      - name: Smoke test
+        run: |
+          "$HOME/Library/Application Support/JarvisApp/venv/bin/python" packaging/ci_smoke.py
+
+  windows:
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheel
+          path: packaging
+      - name: Run the Windows installer
+        shell: pwsh
+        env:
+          JARVIS_SETUP_ARGS: "--yes --no-brain"
+        run: powershell -ExecutionPolicy Bypass -File packaging\install.ps1
+      - name: Smoke test
+        shell: pwsh
+        run: |
+          & "$env:LOCALAPPDATA\Programs\Jarvis\venv\Scripts\python.exe" -m jarvis --help | Select-Object -First 5
+          & "$env:LOCALAPPDATA\Programs\Jarvis\venv\Scripts\python.exe" packaging\ci_smoke.py
